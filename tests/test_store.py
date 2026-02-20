@@ -1,0 +1,253 @@
+"""
+存储层测试
+
+测试 VectorStore 和 MetaStore 的核心功能。
+"""
+
+import os
+import shutil
+import tempfile
+
+import pytest
+
+from cortex.models import MemoryFragment, MemoryType, Role
+from cortex.store.vector_store import VectorStore
+from cortex.store.meta_store import MetaStore
+
+
+# ============================================================
+# Fixtures
+# ============================================================
+
+@pytest.fixture
+def tmp_dir():
+    """创建临时目录，测试后自动清理"""
+    d = tempfile.mkdtemp()
+    yield d
+    shutil.rmtree(d, ignore_errors=True)
+
+
+@pytest.fixture
+def vector_store(tmp_dir):
+    """创建 VectorStore 实例"""
+    return VectorStore(persist_directory=os.path.join(tmp_dir, "chroma"))
+
+
+@pytest.fixture
+def meta_store(tmp_dir):
+    """创建 MetaStore 实例"""
+    return MetaStore(db_path=os.path.join(tmp_dir, "meta.db"))
+
+
+# ============================================================
+# VectorStore 测试
+# ============================================================
+
+class TestVectorStore:
+    """VectorStore 测试用例"""
+
+    def test_add_and_list(self, vector_store):
+        """添加记忆后能成功列出"""
+        fragment = MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="生日是 1990-03-15",
+            memory_type=MemoryType.FACTUAL,
+        )
+        vector_store.add(fragment)
+
+        results = vector_store.list_memories("t1", "p1", "u1")
+        assert len(results) == 1
+        assert results[0]["content"] == "生日是 1990-03-15"
+        assert results[0]["memory_type"] == "factual"
+
+    def test_search(self, vector_store):
+        """语义搜索能找到相关记忆"""
+        # 添加几条不同主题的记忆
+        memories = [
+            ("喜欢吃四川火锅", MemoryType.PREFERENCE),
+            ("每天早上 7 点起床", MemoryType.FACTUAL),
+            ("不喜欢太辣的食物", MemoryType.PREFERENCE),
+        ]
+        for content, mt in memories:
+            fragment = MemoryFragment(
+                tenant_id="t1", project_id="p1", user_id="u1",
+                content=content, memory_type=mt,
+            )
+            vector_store.add(fragment)
+
+        # 搜索与"饮食"相关的内容
+        results = vector_store.search("t1", "p1", "u1", query="吃东西的偏好")
+        assert len(results) > 0
+        # 搜索结果应该包含 score 字段
+        assert "score" in results[0]
+
+    def test_search_with_type_filter(self, vector_store):
+        """搜索时可以按类型过滤"""
+        vector_store.add(MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="生日是 3 月份", memory_type=MemoryType.FACTUAL,
+        ))
+        vector_store.add(MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="喜欢收到生日礼物", memory_type=MemoryType.PREFERENCE,
+        ))
+
+        # 只搜索 factual 类型
+        results = vector_store.search(
+            "t1", "p1", "u1", query="生日",
+            memory_type=MemoryType.FACTUAL,
+        )
+        assert all(r["memory_type"] == "factual" for r in results)
+
+    def test_session_history(self, vector_store):
+        """获取会话历史并按时间排序"""
+        import time
+
+        for i, (content, role) in enumerate([
+            ("你好", Role.USER),
+            ("你好！有什么可以帮你？", Role.ASSISTANT),
+            ("帮我分析一下八字", Role.USER),
+        ]):
+            time.sleep(0.01)  # 确保时间戳不同
+            vector_store.add(MemoryFragment(
+                tenant_id="t1", project_id="p1", user_id="u1",
+                content=content, memory_type=MemoryType.SESSION,
+                role=role, session_id="s1",
+            ))
+
+        history = vector_store.get_by_session("t1", "p1", "u1", "s1")
+        assert len(history) == 3
+        assert history[0]["content"] == "你好"
+        assert history[2]["content"] == "帮我分析一下八字"
+
+    def test_delete(self, vector_store):
+        """删除指定记忆"""
+        fragment = MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="要删除的记忆", memory_type=MemoryType.FACTUAL,
+        )
+        vector_store.add(fragment)
+
+        assert vector_store.delete("t1", "p1", "u1", fragment.id)
+        results = vector_store.list_memories("t1", "p1", "u1")
+        assert len(results) == 0
+
+    def test_user_isolation(self, vector_store):
+        """不同用户的数据隔离"""
+        vector_store.add(MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="user_a",
+            content="用户 A 的记忆", memory_type=MemoryType.FACTUAL,
+        ))
+        vector_store.add(MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="user_b",
+            content="用户 B 的记忆", memory_type=MemoryType.FACTUAL,
+        ))
+
+        a_memories = vector_store.list_memories("t1", "p1", "user_a")
+        b_memories = vector_store.list_memories("t1", "p1", "user_b")
+        assert len(a_memories) == 1
+        assert len(b_memories) == 1
+        assert a_memories[0]["content"] == "用户 A 的记忆"
+        assert b_memories[0]["content"] == "用户 B 的记忆"
+
+    def test_stats(self, vector_store):
+        """统计信息正确"""
+        vector_store.add(MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="事实 1", memory_type=MemoryType.FACTUAL,
+        ))
+        vector_store.add(MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="偏好 1", memory_type=MemoryType.PREFERENCE,
+        ))
+        vector_store.add(MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="偏好 2", memory_type=MemoryType.PREFERENCE,
+        ))
+
+        stats = vector_store.get_stats("t1", "p1", "u1")
+        assert stats["total"] == 3
+        assert stats["by_type"]["factual"] == 1
+        assert stats["by_type"]["preference"] == 2
+
+    def test_increment_hit_count(self, vector_store):
+        """hit_count 递增"""
+        fragment = MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="测试 hit count", memory_type=MemoryType.FACTUAL,
+        )
+        vector_store.add(fragment)
+
+        vector_store.increment_hit_count("t1", "p1", "u1", fragment.id)
+        vector_store.increment_hit_count("t1", "p1", "u1", fragment.id)
+
+        results = vector_store.list_memories("t1", "p1", "u1")
+        assert results[0]["hit_count"] == 2
+
+
+# ============================================================
+# MetaStore 测试
+# ============================================================
+
+class TestMetaStore:
+    """MetaStore 测试用例"""
+
+    def test_create_and_get_tenant(self, meta_store):
+        """创建租户后能获取到"""
+        tenant = meta_store.create_tenant("测试公司")
+        assert tenant.name == "测试公司"
+
+        fetched = meta_store.get_tenant(tenant.id)
+        assert fetched is not None
+        assert fetched.name == "测试公司"
+
+    def test_list_tenants(self, meta_store):
+        """列出所有租户"""
+        meta_store.create_tenant("公司 A")
+        meta_store.create_tenant("公司 B")
+
+        tenants = meta_store.list_tenants()
+        assert len(tenants) == 2
+
+    def test_create_project(self, meta_store):
+        """在租户下创建项目"""
+        tenant = meta_store.create_tenant("测试公司")
+        project = meta_store.create_project(tenant.id, "酒店 AI")
+
+        assert project.name == "酒店 AI"
+        assert project.tenant_id == tenant.id
+
+    def test_create_project_invalid_tenant(self, meta_store):
+        """无效的租户 ID 应报错"""
+        with pytest.raises(ValueError, match="租户不存在"):
+            meta_store.create_project("invalid_id", "测试项目")
+
+    def test_delete_project(self, meta_store):
+        """删除项目"""
+        tenant = meta_store.create_tenant("测试")
+        project = meta_store.create_project(tenant.id, "待删除")
+        assert meta_store.delete_project(project.id)
+        assert meta_store.get_project(project.id) is None
+
+    def test_api_key_lifecycle(self, meta_store):
+        """API Key 的生成、验证、吊销"""
+        tenant = meta_store.create_tenant("测试")
+        project = meta_store.create_project(tenant.id, "项目")
+
+        # 生成
+        api_key = meta_store.generate_api_key(tenant.id, project.id)
+        assert api_key.key.startswith("ctx_")
+
+        # 验证
+        verified = meta_store.verify_api_key(api_key.key)
+        assert verified is not None
+        assert verified.tenant_id == tenant.id
+        assert verified.project_id == project.id
+
+        # 吊销
+        assert meta_store.revoke_api_key(api_key.key)
+        assert meta_store.verify_api_key(api_key.key) is None
+
+    def test_invalid_api_key(self, meta_store):
+        """无效的 API Key 验证返回 None"""
+        assert meta_store.verify_api_key("invalid_key") is None

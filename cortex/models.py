@@ -1,5 +1,5 @@
 """
-Cortex 数据模型
+Engrama 数据模型
 
 定义记忆系统的核心数据结构和 API Schema。
 """
@@ -47,7 +47,7 @@ def _now() -> datetime:
 
 class MemoryFragment(BaseModel):
     """
-    记忆片段 — Cortex 的核心数据单元
+    记忆片段 — Engrama 的核心数据单元
 
     每个记忆片段归属于 tenant → project → user 三层组织结构。
     """

@@ -1,5 +1,5 @@
 """
-Cortex 配置管理
+Engrama 配置管理
 
 集中管理所有配置项，支持通过环境变量覆盖默认值。
 """
@@ -30,7 +30,7 @@ DEFAULT_SEARCH_LIMIT = 10
 DEFAULT_HISTORY_LIMIT = 50
 
 # API 配置
-API_TITLE = "Cortex — 通用 AI 记忆中间件"
+API_TITLE = "Engrama — 通用 AI 记忆中间件"
 API_VERSION = "0.3.0"
 API_DESCRIPTION = "为各类 AI 项目提供按渠道接入、按用户隔离的记忆存储与语义检索服务。"
 

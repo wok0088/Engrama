@@ -5,7 +5,7 @@
 ## [0.3.0] - 2026-02-23
 
 ### ✨ 新功能
-- **MCP Server** — 通过 MCP (Model Context Protocol) 协议让 AI 模型直接调用 Cortex 记忆功能
+- **MCP Server** — 通过 MCP (Model Context Protocol) 协议让 AI 模型直接调用 Engrama 记忆功能
   - 6 个 MCP Tools：`add_memory`、`search_memory`、`add_message`、`get_history`、`delete_memory`、`get_user_stats`
   - 支持 stdio 和 SSE 两种传输方式
   - 可接入 Claude Desktop、Cursor 等 MCP 客户端

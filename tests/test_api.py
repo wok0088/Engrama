@@ -82,7 +82,7 @@ class TestAPI:
         resp = client.get("/")
         assert resp.status_code == 200
         data = resp.json()
-        assert "Cortex" in data["name"]
+        assert "Engrama" in data["name"]
 
     def test_health(self, client):
         """健康检查"""

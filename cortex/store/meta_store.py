@@ -23,7 +23,7 @@ class MetaStore:
     """
     SQLite 元数据存储
 
-    管理 Cortex 的组织层级：Tenant → Project → API Key。
+    管理 Engrama 的组织层级：Tenant → Project → API Key。
     使用线程级连接池确保并发安全。
     """
 

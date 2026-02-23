@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">🧠 Cortex</h1>
+  <h1 align="center">🧠 Engrama</h1>
   <p align="center"><strong>通用 AI 记忆中间件（Memory-as-a-Service）</strong></p>
   <p align="center">为各类 AI 项目提供「按渠道接入、按用户隔离」的记忆存储与语义检索服务</p>
 </p>
@@ -14,9 +14,9 @@
 
 ---
 
-## ✨ 什么是 Cortex
+## ✨ 什么是 Engrama
 
-Cortex 是一个**轻量级、通用的 AI 记忆中间件**，解决 AI 项目中的一个核心痛点：**如何让 AI 记住用户**。
+Engrama 是一个**轻量级、通用的 AI 记忆中间件**，解决 AI 项目中的一个核心痛点：**如何让 AI 记住用户**。
 
 - 🔌 **即插即用** — 3 行代码接入，REST API 设计
 - 💰 **零 LLM 成本** — 基础功能不依赖任何大模型
@@ -162,7 +162,7 @@ X-Admin-Token: your_secret_token
 
 ## 🤖 MCP Server
 
-Cortex 提供 MCP (Model Context Protocol) 接口，让 AI 模型可以**直接调用**记忆功能。
+Engrama 提供 MCP (Model Context Protocol) 接口，让 AI 模型可以**直接调用**记忆功能。
 
 ### 两种接入方式对比
 

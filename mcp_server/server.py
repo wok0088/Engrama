@@ -1,11 +1,11 @@
 """
-Cortex MCP Server
+Engrama MCP Server
 
-将 Cortex 的记忆管理能力通过 MCP (Model Context Protocol) 暴露给 AI 模型。
-AI 模型（如 Claude、Cursor 等）可以通过 MCP 协议直接调用 Cortex 的记忆功能，
+将 Engrama 的记忆管理能力通过 MCP (Model Context Protocol) 暴露给 AI 模型。
+AI 模型（如 Claude、Cursor 等）可以通过 MCP 协议直接调用 Engrama 的记忆功能，
 自主决定何时存取用户记忆。
 
-MCP Server 复用 Cortex 的业务层（MemoryManager），不引入新的存储逻辑。
+MCP Server 复用 Engrama 的业务层（MemoryManager），不引入新的存储逻辑。
 
 使用方式：
     # stdio 模式（Claude Desktop / Cursor 等 MCP 客户端）
@@ -30,13 +30,13 @@ from cortex.memory_manager import MemoryManager
 logger = get_logger(__name__)
 
 # ----------------------------------------------------------
-# 初始化 MCP Server 和 Cortex 业务层
+# 初始化 MCP Server 和 Engrama 业务层
 # ----------------------------------------------------------
 
 mcp = FastMCP(
-    "cortex",
+    "engrama",
     instructions=(
-        "Cortex 是一个 AI 记忆中间件。你可以使用以下工具来存储和检索用户记忆。"
+        "Engrama 是一个 AI 记忆中间件。你可以使用以下工具来存储和检索用户记忆。"
         "在对话中，当你了解到关于用户的重要信息（偏好、事实、经历等）时，"
         "应该主动调用 add_memory 存储。当需要回忆用户信息时，调用 search_memory。"
     ),
@@ -47,7 +47,7 @@ _vector_store = VectorStore()
 _meta_store = MetaStore()
 _memory_manager = MemoryManager(vector_store=_vector_store, meta_store=_meta_store)
 
-logger.info("Cortex MCP Server 初始化完成")
+logger.info("Engrama MCP Server 初始化完成")
 
 
 # ----------------------------------------------------------
@@ -303,8 +303,8 @@ def get_user_stats(
 # ----------------------------------------------------------
 
 def main():
-    """启动 Cortex MCP Server"""
-    parser = argparse.ArgumentParser(description="Cortex MCP Server")
+    """启动 Engrama MCP Server"""
+    parser = argparse.ArgumentParser(description="Engrama MCP Server")
     parser.add_argument(
         "--transport", choices=["stdio", "sse"], default="stdio",
         help="传输方式：stdio（默认，供 Claude Desktop/Cursor 使用）或 sse（HTTP 远程访问）",
@@ -315,7 +315,7 @@ def main():
     )
     args = parser.parse_args()
 
-    logger.info("启动 Cortex MCP Server (transport=%s)", args.transport)
+    logger.info("启动 Engrama MCP Server (transport=%s)", args.transport)
 
     if args.transport == "sse":
         mcp.run(transport="sse", sse_params={"port": args.port})

@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 class MemoryManager:
     """
-    记忆管理器 — Cortex 的核心业务层
+    记忆管理器 — Engrama 的核心业务层
 
     使用示例：
     ```python

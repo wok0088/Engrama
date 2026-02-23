@@ -1,5 +1,5 @@
 """
-Cortex REST API 入口
+Engrama REST API 入口
 
 FastAPI 应用初始化，注册路由、中间件、CORS 和全局异常处理。
 """
@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时初始化存储和管理器"""
-    logger.info("Cortex %s 正在启动...", config.API_VERSION)
+    logger.info("Engrama %s 正在启动...", config.API_VERSION)
     logger.info("Embedding 模型: %s", config.EMBEDDING_MODEL)
     logger.info("数据目录: %s", config.DATA_DIR)
 
@@ -42,9 +42,9 @@ async def lifespan(app: FastAPI):
     app.state.channel_manager = ChannelManager(meta_store=meta_store)
     app.state.meta_store = meta_store
 
-    logger.info("Cortex 启动完成 ✅")
+    logger.info("Engrama 启动完成 ✅")
     yield
-    logger.info("Cortex 正在关闭...")
+    logger.info("Engrama 正在关闭...")
 
 
 def create_app() -> FastAPI:
@@ -121,7 +121,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", tags=["根"])
     async def root():
-        """Cortex API 欢迎页"""
+        """Engrama API 欢迎页"""
         return {
             "name": config.API_TITLE,
             "version": config.API_VERSION,

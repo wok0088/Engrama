@@ -70,10 +70,13 @@ class ChannelManager:
     # API Key 管理
     # ----------------------------------------------------------
 
-    def generate_api_key(self, tenant_id: str, project_id: str) -> ApiKey:
-        """生成 API Key"""
-        api_key = self._meta_store.generate_api_key(tenant_id, project_id)
-        logger.info("生成 API Key: tenant=%s, project=%s", tenant_id, project_id)
+    def generate_api_key(self, tenant_id: str, project_id: str, user_id: str = None) -> ApiKey:
+        """生成 API Key（可选绑定 user_id）"""
+        api_key = self._meta_store.generate_api_key(tenant_id, project_id, user_id=user_id)
+        if user_id:
+            logger.info("生成用户级 API Key: tenant=%s, project=%s, user=%s", tenant_id, project_id, user_id)
+        else:
+            logger.info("生成项目级 API Key: tenant=%s, project=%s", tenant_id, project_id)
         return api_key
 
     def verify_api_key(self, key: str) -> Optional[ApiKey]:

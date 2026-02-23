@@ -73,6 +73,7 @@ class MetaStore:
                     key TEXT PRIMARY KEY,
                     tenant_id TEXT NOT NULL,
                     project_id TEXT NOT NULL,
+                    user_id TEXT DEFAULT NULL,
                     created_at TEXT NOT NULL,
                     is_active INTEGER NOT NULL DEFAULT 1,
                     FOREIGN KEY (tenant_id) REFERENCES tenants(id),
@@ -202,30 +203,41 @@ class MetaStore:
     # API Key 管理
     # ----------------------------------------------------------
 
-    def generate_api_key(self, tenant_id: str, project_id: str) -> ApiKey:
-        """生成 API Key"""
+    def generate_api_key(self, tenant_id: str, project_id: str, user_id: str = None) -> ApiKey:
+        """
+        生成 API Key
+
+        Args:
+            tenant_id: 租户 ID
+            project_id: 项目 ID
+            user_id: 可选，绑定的用户 ID。为 None 时生成项目级 Key（B 端），
+                     有值时生成用户级 Key（C 端，user_id 自动绑定）
+        """
         if self.get_tenant(tenant_id) is None:
             raise ValueError(f"租户不存在: {tenant_id}")
         if self.get_project(project_id) is None:
             raise ValueError(f"项目不存在: {project_id}")
 
         key_value = f"ctx_{secrets.token_urlsafe(32)}"
-        api_key = ApiKey(key=key_value, tenant_id=tenant_id, project_id=project_id)
+        api_key = ApiKey(key=key_value, tenant_id=tenant_id, project_id=project_id, user_id=user_id)
 
         conn = self._get_conn()
         conn.execute(
-            "INSERT INTO api_keys (key, tenant_id, project_id, created_at, is_active) VALUES (?, ?, ?, ?, ?)",
-            (api_key.key, api_key.tenant_id, api_key.project_id, api_key.created_at.isoformat(), 1),
+            "INSERT INTO api_keys (key, tenant_id, project_id, user_id, created_at, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+            (api_key.key, api_key.tenant_id, api_key.project_id, api_key.user_id, api_key.created_at.isoformat(), 1),
         )
         conn.commit()
-        logger.info("生成 API Key: tenant=%s, project=%s", tenant_id, project_id)
+        if user_id:
+            logger.info("生成用户级 API Key: tenant=%s, project=%s, user=%s", tenant_id, project_id, user_id)
+        else:
+            logger.info("生成项目级 API Key: tenant=%s, project=%s", tenant_id, project_id)
         return api_key
 
     def verify_api_key(self, key: str) -> Optional[ApiKey]:
-        """验证 API Key"""
+        """验证 API Key，返回包含 user_id 的完整信息"""
         conn = self._get_conn()
         row = conn.execute(
-            "SELECT key, tenant_id, project_id, created_at, is_active FROM api_keys WHERE key = ? AND is_active = 1",
+            "SELECT key, tenant_id, project_id, user_id, created_at, is_active FROM api_keys WHERE key = ? AND is_active = 1",
             (key,),
         ).fetchone()
         if row is None:
@@ -234,6 +246,7 @@ class MetaStore:
             key=row["key"],
             tenant_id=row["tenant_id"],
             project_id=row["project_id"],
+            user_id=row["user_id"],
             created_at=datetime.fromisoformat(row["created_at"]),
             is_active=bool(row["is_active"]),
         )

@@ -83,5 +83,6 @@ class ApiKeyAuthMiddleware(BaseHTTPMiddleware):
         request.state.tenant_id = api_key.tenant_id
         request.state.project_id = api_key.project_id
         request.state.api_key = api_key.key
+        request.state.bound_user_id = api_key.user_id  # None 为项目级 Key
 
         return await call_next(request)

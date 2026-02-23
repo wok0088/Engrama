@@ -114,16 +114,18 @@ def generate_api_key(body: GenerateApiKeyRequest, request: Request):
     """
     为指定的 tenant + project 生成一个 API Key。
 
+    可选传入 user_id 生成用户级 Key（C 端），不传则为项目级 Key（B 端）。
     ⚠️ API Key 只在创建时展示一次，请妥善保存。
     """
     cm = _get_channel_manager(request)
     try:
-        api_key = cm.generate_api_key(body.tenant_id, body.project_id)
+        api_key = cm.generate_api_key(body.tenant_id, body.project_id, user_id=body.user_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return ApiKeyResponse(
         key=api_key.key,
         tenant_id=api_key.tenant_id,
         project_id=api_key.project_id,
+        user_id=api_key.user_id,
         created_at=api_key.created_at,
     )

@@ -7,12 +7,19 @@ AI 模型（如 Claude、Cursor 等）可以通过 MCP 协议直接调用 Engram
 
 鉴权机制：
     MCP Server 启动时必须提供 API Key（环境变量或 CLI 参数），
-    通过 MetaStore 验证 Key 并绑定 tenant_id / project_id。
+    通过 MetaStore 验证 Key 并绑定 tenant_id / project_id / user_id。
     所有 Tool 自动使用绑定的身份上下文，AI 模型无需感知底层主键。
+
+    API Key 分级：
+    - 项目级 Key（B 端）：user_id 需由 AI 或 ENGRAMA_USER_ID 环境变量提供
+    - 用户级 Key（C 端）：user_id 自动从 Key 绑定，AI 无需关心
 
 使用方式：
     # stdio 模式（Claude Desktop / Cursor 等 MCP 客户端）
     ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server
+
+    # 用户级 Key + 默认用户
+    ENGRAMA_API_KEY=ctx_xxxx ENGRAMA_USER_ID=nil python -m mcp_server
 
     # 或者通过 CLI 参数
     python -m mcp_server --api-key ctx_xxxx
@@ -25,7 +32,7 @@ import argparse
 import json
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -49,10 +56,51 @@ class AuthContext:
     tenant_id: str
     project_id: str
     api_key: str
+    user_id: Optional[str] = None           # 从 Key 绑定（用户级 Key）
+    default_user_id: Optional[str] = None   # 从 ENGRAMA_USER_ID 环境变量
 
 
 # 全局上下文（stdio 模式为单客户端，全局即可）
 _auth: Optional[AuthContext] = None
+
+
+def _resolve_user_id(passed_user_id: str = "") -> str:
+    """
+    解析最终使用的 user_id
+
+    优先级：
+    1. API Key 绑定的 user_id（最高，不可覆盖）
+    2. 调用方显式传入的 user_id
+    3. ENGRAMA_USER_ID 环境变量
+    4. 报错
+
+    Args:
+        passed_user_id: Tool 调用时传入的 user_id
+
+    Returns:
+        解析后的 user_id
+
+    Raises:
+        ValueError: 无法确定 user_id
+    """
+    # 1. Key 绑定（最高优先级）
+    if _auth.user_id:
+        return _auth.user_id
+
+    # 2. 调用方传入
+    if passed_user_id:
+        return passed_user_id
+
+    # 3. 环境变量默认值
+    if _auth.default_user_id:
+        return _auth.default_user_id
+
+    # 4. 无法确定
+    raise ValueError(
+        "缺少 user_id。请在调用时传入 user_id，"
+        "或通过 ENGRAMA_USER_ID 环境变量设置默认值，"
+        "或使用用户级 API Key（生成 Key 时绑定 user_id）。"
+    )
 
 
 def verify_and_bind(api_key: str, meta_store: MetaStore) -> AuthContext:
@@ -78,14 +126,22 @@ def verify_and_bind(api_key: str, meta_store: MetaStore) -> AuthContext:
         logger.error("❌ 无效的 API Key: %s", api_key[:10] + "...")
         sys.exit(1)
 
+    default_user_id = os.environ.get("ENGRAMA_USER_ID", "")
+
     ctx = AuthContext(
         tenant_id=result.tenant_id,
         project_id=result.project_id,
         api_key=api_key,
+        user_id=result.user_id,
+        default_user_id=default_user_id or None,
     )
+
+    key_type = "用户级" if ctx.user_id else "项目级"
     logger.info(
-        "MCP 鉴权成功: tenant=%s, project=%s",
-        ctx.tenant_id, ctx.project_id,
+        "MCP 鉴权成功 (%s Key): tenant=%s, project=%s%s%s",
+        key_type, ctx.tenant_id, ctx.project_id,
+        f", user={ctx.user_id}" if ctx.user_id else "",
+        f", default_user={ctx.default_user_id}" if ctx.default_user_id else "",
     )
     return ctx
 
@@ -119,13 +175,13 @@ def _init_services():
 
 
 # ----------------------------------------------------------
-# MCP Tools — 记忆管理（无 tenant_id / project_id 参数）
+# MCP Tools — 记忆管理（user_id 可选，自动解析）
 # ----------------------------------------------------------
 
 @mcp.tool()
 def add_memory(
-    user_id: str,
     content: str,
+    user_id: str = "",
     memory_type: str = "factual",
     tags: str = "",
     importance: float = 0.0,
@@ -136,12 +192,17 @@ def add_memory(
     当你在对话中了解到用户的重要信息时，调用此工具将其存储。
 
     Args:
-        user_id: 用户唯一标识
         content: 记忆内容（如 "用户喜欢安静的环境"）
+        user_id: 用户标识（如已通过 API Key 或环境变量绑定，则可不填）
         memory_type: 记忆类型，可选值: factual(事实) / preference(偏好) / episodic(经历) / session(会话)
         tags: 标签，多个用逗号分隔（如 "饮食,偏好"）
         importance: 重要度 0.0-1.0，越高越重要
     """
+    try:
+        resolved_uid = _resolve_user_id(user_id)
+    except ValueError as e:
+        return str(e)
+
     try:
         mt = MemoryType(memory_type)
     except ValueError:
@@ -152,14 +213,14 @@ def add_memory(
     fragment = _memory_manager.add(
         tenant_id=_auth.tenant_id,
         project_id=_auth.project_id,
-        user_id=user_id,
+        user_id=resolved_uid,
         content=content,
         memory_type=mt,
         tags=tag_list,
         importance=importance,
     )
 
-    logger.info("MCP: 添加记忆 id=%s, user=%s", fragment.id, user_id)
+    logger.info("MCP: 添加记忆 id=%s, user=%s", fragment.id, resolved_uid)
     return json.dumps({
         "status": "success",
         "id": fragment.id,
@@ -170,8 +231,8 @@ def add_memory(
 
 @mcp.tool()
 def search_memory(
-    user_id: str,
     query: str,
+    user_id: str = "",
     limit: int = 5,
     memory_type: str = "",
 ) -> str:
@@ -181,11 +242,16 @@ def search_memory(
     当你需要回忆关于用户的信息时，调用此工具进行语义搜索。
 
     Args:
-        user_id: 用户唯一标识
         query: 搜索查询（如 "用户的饮食偏好"）
+        user_id: 用户标识（如已通过 API Key 或环境变量绑定，则可不填）
         limit: 返回结果数量上限（默认 5）
         memory_type: 按类型过滤，留空则搜索所有类型
     """
+    try:
+        resolved_uid = _resolve_user_id(user_id)
+    except ValueError as e:
+        return str(e)
+
     mt = None
     if memory_type:
         try:
@@ -196,13 +262,13 @@ def search_memory(
     results = _memory_manager.search(
         tenant_id=_auth.tenant_id,
         project_id=_auth.project_id,
-        user_id=user_id,
+        user_id=resolved_uid,
         query=query,
         limit=limit,
         memory_type=mt,
     )
 
-    logger.info("MCP: 搜索记忆 user=%s, query='%s', 结果=%d", user_id, query[:30], len(results))
+    logger.info("MCP: 搜索记忆 user=%s, query='%s', 结果=%d", resolved_uid, query[:30], len(results))
 
     if not results:
         return "未找到相关记忆。"
@@ -223,10 +289,10 @@ def search_memory(
 
 @mcp.tool()
 def add_message(
-    user_id: str,
     content: str,
     role: str,
     session_id: str,
+    user_id: str = "",
 ) -> str:
     """
     存储一条会话消息。
@@ -234,11 +300,16 @@ def add_message(
     用于保存对话上下文，方便后续检索历史会话。
 
     Args:
-        user_id: 用户唯一标识
         content: 消息内容
         role: 消息角色：user / assistant / system
         session_id: 会话 ID
+        user_id: 用户标识（如已通过 API Key 或环境变量绑定，则可不填）
     """
+    try:
+        resolved_uid = _resolve_user_id(user_id)
+    except ValueError as e:
+        return str(e)
+
     try:
         r = Role(role)
     except ValueError:
@@ -247,7 +318,7 @@ def add_message(
     fragment = _memory_manager.add_message(
         tenant_id=_auth.tenant_id,
         project_id=_auth.project_id,
-        user_id=user_id,
+        user_id=resolved_uid,
         content=content,
         role=r,
         session_id=session_id,
@@ -262,22 +333,27 @@ def add_message(
 
 @mcp.tool()
 def get_history(
-    user_id: str,
     session_id: str,
+    user_id: str = "",
     limit: int = 50,
 ) -> str:
     """
     获取会话历史消息。
 
     Args:
-        user_id: 用户唯一标识
         session_id: 会话 ID
+        user_id: 用户标识（如已通过 API Key 或环境变量绑定，则可不填）
         limit: 返回数量上限
     """
+    try:
+        resolved_uid = _resolve_user_id(user_id)
+    except ValueError as e:
+        return str(e)
+
     results = _memory_manager.get_history(
         tenant_id=_auth.tenant_id,
         project_id=_auth.project_id,
-        user_id=user_id,
+        user_id=resolved_uid,
         session_id=session_id,
         limit=limit,
     )
@@ -295,20 +371,25 @@ def get_history(
 
 @mcp.tool()
 def delete_memory(
-    user_id: str,
     memory_id: str,
+    user_id: str = "",
 ) -> str:
     """
     删除一条记忆。
 
     Args:
-        user_id: 用户唯一标识
         memory_id: 要删除的记忆 ID
+        user_id: 用户标识（如已通过 API Key 或环境变量绑定，则可不填）
     """
+    try:
+        resolved_uid = _resolve_user_id(user_id)
+    except ValueError as e:
+        return str(e)
+
     success = _memory_manager.delete(
         tenant_id=_auth.tenant_id,
         project_id=_auth.project_id,
-        user_id=user_id,
+        user_id=resolved_uid,
         fragment_id=memory_id,
     )
 
@@ -321,22 +402,27 @@ def delete_memory(
 
 @mcp.tool()
 def get_user_stats(
-    user_id: str,
+    user_id: str = "",
 ) -> str:
     """
     获取用户记忆统计信息。
 
     Args:
-        user_id: 用户唯一标识
+        user_id: 用户标识（如已通过 API Key 或环境变量绑定，则可不填）
     """
+    try:
+        resolved_uid = _resolve_user_id(user_id)
+    except ValueError as e:
+        return str(e)
+
     stats = _memory_manager.get_stats(
         tenant_id=_auth.tenant_id,
         project_id=_auth.project_id,
-        user_id=user_id,
+        user_id=resolved_uid,
     )
 
     return json.dumps({
-        "user_id": user_id,
+        "user_id": resolved_uid,
         "total_memories": stats["total"],
         "by_type": stats["by_type"],
     }, ensure_ascii=False, indent=2)

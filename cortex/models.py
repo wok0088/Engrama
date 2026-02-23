@@ -83,10 +83,16 @@ class Project(BaseModel):
 
 
 class ApiKey(BaseModel):
-    """API Key — 用于认证和路由请求到对应的 tenant/project"""
+    """API Key — 用于认证和路由请求到对应的 tenant/project
+
+    支持两种级别：
+    - 项目级 Key（user_id=None）：B 端，调用方必须传 user_id
+    - 用户级 Key（user_id 有值）：C 端，user_id 自动绑定，不可覆盖
+    """
     key: str = Field(description="API Key 值")
     tenant_id: str = Field(description="所属租户 ID")
     project_id: str = Field(description="所属项目 ID")
+    user_id: Optional[str] = Field(default=None, description="绑定的用户 ID（None 为项目级 Key）")
     created_at: datetime = Field(default_factory=_now, description="创建时间")
     is_active: bool = Field(default=True, description="是否激活")
 
@@ -154,6 +160,7 @@ class GenerateApiKeyRequest(BaseModel):
     """生成 API Key 请求"""
     tenant_id: str = Field(description="租户 ID")
     project_id: str = Field(description="项目 ID")
+    user_id: Optional[str] = Field(default=None, description="可选：绑定用户 ID（为空则生成项目级 Key）")
 
 
 class TenantResponse(BaseModel):
@@ -176,6 +183,7 @@ class ApiKeyResponse(BaseModel):
     key: str
     tenant_id: str
     project_id: str
+    user_id: Optional[str] = None
     created_at: datetime
 
 

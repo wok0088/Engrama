@@ -8,6 +8,9 @@
 - **MCP Server 鉴权** — 启动时必须提供 API Key（`ENGRAMA_API_KEY` 环境变量或 `--api-key` 参数）
 - **Tool 参数降维** — 从 Tool 签名中移除 `tenant_id`/`project_id`，AI 模型无需感知系统主键，避免 IDOR 越权漏洞
 - **身份注入** — API Key 验证后自动绑定 tenant/project 上下文，与 HTTP API 使用同一套鉴权体系
+- **API Key 分级** — 支持项目级 Key（B 端，调用方传 user_id）和用户级 Key（C 端，user_id 自动绑定不可覆盖）
+- **`ENGRAMA_USER_ID`** — MCP 场景支持通过环境变量设置默认用户 ID
+- **越权防护** — 用户级 Key 传入不匹配的 user_id 时返回 403
 
 ### 🔍 改进
 - **Embedding 模型** — 默认切换为 `BAAI/bge-m3`（多语言模型，向量维度 1024），模型文件存放在项目 `data/models/` 目录下

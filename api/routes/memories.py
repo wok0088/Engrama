@@ -35,6 +35,39 @@ def _get_manager(request: Request) -> MemoryManager:
     return request.app.state.memory_manager
 
 
+def _resolve_user_id(request: Request, request_user_id: str) -> str:
+    """
+    解析最终使用的 user_id
+
+    优先级：
+    1. API Key 绑定的 user_id（不可覆盖）
+    2. 请求中传入的 user_id
+
+    安全规则：
+    - 用户级 Key（有绑定 user_id）：强制使用绑定值。
+      传入不同值 → 403；传入相同值或不传 → 使用绑定值
+    - 项目级 Key（无绑定 user_id）：必须传入 user_id
+    """
+    bound_user_id = getattr(request.state, "bound_user_id", None)
+
+    if bound_user_id:
+        # 用户级 Key：强制使用绑定值
+        if request_user_id and request_user_id != bound_user_id:
+            raise HTTPException(
+                status_code=403,
+                detail=f"此 API Key 已绑定用户 '{bound_user_id}'，不允许操作其他用户数据",
+            )
+        return bound_user_id
+    else:
+        # 项目级 Key：必须传入
+        if not request_user_id:
+            raise HTTPException(
+                status_code=400,
+                detail="缺少 user_id 参数（项目级 API Key 必须传入 user_id）",
+            )
+        return request_user_id
+
+
 def _dict_to_response(item: dict) -> MemoryResponse:
     """将字典转为 MemoryResponse"""
     return MemoryResponse(
@@ -66,10 +99,11 @@ def add_memory(body: AddMemoryRequest, request: Request):
     需要通过 X-API-Key 认证，tenant_id 和 project_id 从 API Key 自动获取。
     """
     manager = _get_manager(request)
+    user_id = _resolve_user_id(request, body.user_id)
     fragment = manager.add(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=body.user_id,
+        user_id=user_id,
         content=body.content,
         memory_type=body.memory_type,
         role=body.role,
@@ -102,10 +136,11 @@ def search_memories(body: SearchMemoryRequest, request: Request):
     使用 POST 而非 GET，因为搜索条件可能很复杂。
     """
     manager = _get_manager(request)
+    user_id = _resolve_user_id(request, body.user_id)
     results = manager.search(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=body.user_id,
+        user_id=user_id,
         query=body.query,
         limit=body.limit,
         memory_type=body.memory_type,
@@ -124,10 +159,11 @@ def list_memories(
 ):
     """列出指定用户的记忆片段，可按类型过滤。"""
     manager = _get_manager(request)
+    resolved_user_id = _resolve_user_id(request, user_id)
     results = manager.list_memories(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=user_id,
+        user_id=resolved_user_id,
         memory_type=memory_type,
         limit=limit,
     )
@@ -147,10 +183,11 @@ def update_memory(
     如果更新了 content，会自动重新向量化。
     """
     manager = _get_manager(request)
+    user_id = _resolve_user_id(request, body.user_id)
     result = manager.update(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=body.user_id,
+        user_id=user_id,
         fragment_id=fragment_id,
         content=body.content,
         tags=body.tags,
@@ -170,10 +207,11 @@ def delete_memory(
 ):
     """删除指定的记忆片段。"""
     manager = _get_manager(request)
+    resolved_user_id = _resolve_user_id(request, user_id)
     success = manager.delete(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=user_id,
+        user_id=resolved_user_id,
         fragment_id=fragment_id,
     )
     if not success:
@@ -198,10 +236,11 @@ def get_session_history(
 ):
     """获取指定会话的消息历史，按时间排序。"""
     manager = _get_manager(request)
+    resolved_user_id = _resolve_user_id(request, user_id)
     results = manager.get_history(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=user_id,
+        user_id=resolved_user_id,
         session_id=session_id,
         limit=limit,
     )
@@ -225,10 +264,11 @@ def get_session_history(
 def get_user_stats(user_id: str, request: Request):
     """获取指定用户的记忆统计信息。"""
     manager = _get_manager(request)
+    resolved_user_id = _resolve_user_id(request, user_id)
     stats = manager.get_stats(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=user_id,
+        user_id=resolved_user_id,
     )
     return StatsResponse(
         user_id=user_id,

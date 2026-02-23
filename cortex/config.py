@@ -21,9 +21,10 @@ CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 SQLITE_DB_PATH = DATA_DIR / "engrama_meta.db"
 
 # Embedding 模型
-# 默认使用 BAAI/bge-small-zh-v1.5（中文 C-MTEB 顶尖、仅 ~50MB、免费开源）
-# 可切换为 BAAI/bge-m3（多语言更强）或其他 sentence-transformers 兼容模型
-EMBEDDING_MODEL = os.getenv("CORTEX_EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
+# 默认使用项目内的 BAAI/bge-m3（多语言 Embedding 模型，支持中英日韩俄等 100+ 语言）
+# 模型文件存放在 data/models/bge-m3/，不依赖 ~/.cache 缓存
+# 可通过环境变量切换为其他 sentence-transformers 兼容模型
+EMBEDDING_MODEL = os.getenv("CORTEX_EMBEDDING_MODEL", str(DATA_DIR / "models" / "bge-m3"))
 
 # 搜索默认参数
 DEFAULT_SEARCH_LIMIT = 10

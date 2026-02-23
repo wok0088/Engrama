@@ -203,7 +203,7 @@ class HistoryResponse(BaseModel):
 
 class UpdateMemoryRequest(BaseModel):
     """更新记忆请求"""
-    user_id: str = Field(description="用户 ID", min_length=1, max_length=100)
+    user_id: Optional[str] = Field(default="", description="用户 ID（用户级 Key 可不传）", max_length=100)
     content: Optional[str] = Field(default=None, description="新的记忆内容", max_length=10000)
     tags: Optional[list[str]] = Field(default=None, description="新的标签", max_length=20)
     importance: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="新的重要度评分")

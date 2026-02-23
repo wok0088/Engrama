@@ -153,7 +153,7 @@ def search_memories(body: SearchMemoryRequest, request: Request):
 @router.get("/memories", response_model=list[MemoryResponse], summary="列出记忆")
 def list_memories(
     request: Request,
-    user_id: str = Query(description="用户 ID"),
+    user_id: str = Query(default="", description="用户 ID（用户级 Key 可不传）"),
     memory_type: Optional[MemoryType] = Query(default=None, description="按类型过滤"),
     limit: int = Query(default=100, ge=1, le=1000, description="返回数量上限"),
 ):
@@ -203,7 +203,7 @@ def update_memory(
 def delete_memory(
     fragment_id: str,
     request: Request,
-    user_id: str = Query(description="用户 ID"),
+    user_id: str = Query(default="", description="用户 ID（用户级 Key 可不传）"),
 ):
     """删除指定的记忆片段。"""
     manager = _get_manager(request)
@@ -231,7 +231,7 @@ def delete_memory(
 def get_session_history(
     session_id: str,
     request: Request,
-    user_id: str = Query(description="用户 ID"),
+    user_id: str = Query(default="", description="用户 ID（用户级 Key 可不传）"),
     limit: int = Query(default=100, ge=1, le=1000, description="返回数量上限"),
 ):
     """获取指定会话的消息历史，按时间排序。"""

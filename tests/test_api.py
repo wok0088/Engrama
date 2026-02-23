@@ -202,6 +202,34 @@ class TestAPI:
         assert resp2.status_code == 403
         assert "已绑定用户" in resp2.json()["detail"]
 
+        # 4. GET 路由：省略 user_id 进行列出
+        fragment_id = resp1.json()["id"]
+        resp_list = client.get(
+            "/v1/memories",
+            headers={"X-API-Key": personal_key},
+        )
+        assert resp_list.status_code == 200
+        assert len(resp_list.json()) == 1
+        assert resp_list.json()[0]["user_id"] == "zhangsan"
+
+        # 5. PUT 路由：省略 user_id 进行更新
+        resp_put = client.put(
+            f"/v1/memories/{fragment_id}",
+            json={
+                "content": "我喜欢踢足球",
+            },
+            headers={"X-API-Key": personal_key},
+        )
+        assert resp_put.status_code == 200
+        assert resp_put.json()["content"] == "我喜欢踢足球"
+
+        # 6. DELETE 路由：省略 user_id 进行删除
+        resp_del = client.delete(
+            f"/v1/memories/{fragment_id}",
+            headers={"X-API-Key": personal_key},
+        )
+        assert resp_del.status_code == 200
+
     def test_search_memories(self, client):
         """语义搜索"""
         _, _, api_key = self._setup_channel(client)

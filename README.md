@@ -28,7 +28,7 @@ Engrama 是一个**轻量级、通用的 AI 记忆中间件**，解决 AI 项目
 
 | 版本 | 状态 | 说明 |
 |---|---|---|
-| **v0.3.0** | ✅ 当前版本 | 生产化加固 + MCP Server |
+| **v0.4.0** | ✅ 当前版本 | 生产化加固 + MCP Server (鉴权) |
 | v1.0.0 | 🔮 规划中 | 记忆智能化（摘要、冲突检测、淘汰策略） |
 | v2.0.0 | 🔮 规划中 | 平台化（Web UI、SDK） |
 
@@ -186,12 +186,17 @@ Engrama 提供 MCP (Model Context Protocol) 接口，让 AI 模型可以**直接
 
 ### 启动 MCP Server
 
+MCP Server 启动时必须提供 API Key（与 HTTP API 使用同一套 Key）：
+
 ```bash
 # stdio 模式（供 Claude Desktop / Cursor 使用）
-python -m mcp_server
+ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server
+
+# 或者通过 CLI 参数
+python -m mcp_server --api-key ctx_xxxx
 
 # SSE 模式（HTTP 远程访问）
-python -m mcp_server --transport sse --port 8001
+ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server --transport sse --port 8001
 ```
 
 ### 配置 Claude Desktop
@@ -204,7 +209,10 @@ python -m mcp_server --transport sse --port 8001
     "engrama": {
       "command": "/path/to/engrama/.venv/bin/python",
       "args": ["-m", "mcp_server"],
-      "cwd": "/path/to/engrama"
+      "cwd": "/path/to/engrama",
+      "env": {
+        "ENGRAMA_API_KEY": "ctx_xxxx"
+      }
     }
   }
 }
@@ -220,7 +228,10 @@ python -m mcp_server --transport sse --port 8001
     "engrama": {
       "command": "/path/to/engrama/.venv/bin/python",
       "args": ["-m", "mcp_server"],
-      "cwd": "/path/to/engrama"
+      "cwd": "/path/to/engrama",
+      "env": {
+        "ENGRAMA_API_KEY": "ctx_xxxx"
+      }
     }
   }
 }

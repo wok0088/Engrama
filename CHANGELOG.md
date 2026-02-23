@@ -2,6 +2,16 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/) 版本规范。
 
+## [0.4.0] - 2026-02-23
+
+### 🔒 安全加固
+- **MCP Server 鉴权** — 启动时必须提供 API Key（`ENGRAMA_API_KEY` 环境变量或 `--api-key` 参数）
+- **Tool 参数降维** — 从 Tool 签名中移除 `tenant_id`/`project_id`，AI 模型无需感知系统主键，避免 IDOR 越权漏洞
+- **身份注入** — API Key 验证后自动绑定 tenant/project 上下文，与 HTTP API 使用同一套鉴权体系
+
+### 🔍 改进
+- **Embedding 模型** — 默认切换为 `BAAI/bge-m3`（多语言模型，向量维度 1024），模型文件存放在项目 `data/models/` 目录下
+
 ## [0.3.0] - 2026-02-23
 
 ### ✨ 新功能

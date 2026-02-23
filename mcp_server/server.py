@@ -5,18 +5,27 @@ Engrama MCP Server
 AI 模型（如 Claude、Cursor 等）可以通过 MCP 协议直接调用 Engrama 的记忆功能，
 自主决定何时存取用户记忆。
 
-MCP Server 复用 Engrama 的业务层（MemoryManager），不引入新的存储逻辑。
+鉴权机制：
+    MCP Server 启动时必须提供 API Key（环境变量或 CLI 参数），
+    通过 MetaStore 验证 Key 并绑定 tenant_id / project_id。
+    所有 Tool 自动使用绑定的身份上下文，AI 模型无需感知底层主键。
 
 使用方式：
     # stdio 模式（Claude Desktop / Cursor 等 MCP 客户端）
-    python -m mcp_server.server
+    ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server
 
-    # 或者通过 SSE 模式（HTTP 远程访问）
-    python -m mcp_server.server --transport sse --port 8001
+    # 或者通过 CLI 参数
+    python -m mcp_server --api-key ctx_xxxx
+
+    # SSE 模式（HTTP 远程访问）
+    ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server --transport sse --port 8001
 """
 
 import argparse
 import json
+import os
+import sys
+from dataclasses import dataclass
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -29,8 +38,60 @@ from cortex.memory_manager import MemoryManager
 
 logger = get_logger(__name__)
 
+
 # ----------------------------------------------------------
-# 初始化 MCP Server 和 Engrama 业务层
+# 鉴权上下文
+# ----------------------------------------------------------
+
+@dataclass
+class AuthContext:
+    """MCP 鉴权上下文，存储从 API Key 解析出的身份信息"""
+    tenant_id: str
+    project_id: str
+    api_key: str
+
+
+# 全局上下文（stdio 模式为单客户端，全局即可）
+_auth: Optional[AuthContext] = None
+
+
+def verify_and_bind(api_key: str, meta_store: MetaStore) -> AuthContext:
+    """
+    验证 API Key 并绑定身份上下文
+
+    Args:
+        api_key: 待验证的 API Key
+        meta_store: 元数据存储实例
+
+    Returns:
+        AuthContext: 验证通过的身份上下文
+
+    Raises:
+        SystemExit: 验证失败时退出进程
+    """
+    if not api_key:
+        logger.error("❌ 缺少 API Key。请通过 ENGRAMA_API_KEY 环境变量或 --api-key 参数提供。")
+        sys.exit(1)
+
+    result = meta_store.verify_api_key(api_key)
+    if result is None:
+        logger.error("❌ 无效的 API Key: %s", api_key[:10] + "...")
+        sys.exit(1)
+
+    ctx = AuthContext(
+        tenant_id=result.tenant_id,
+        project_id=result.project_id,
+        api_key=api_key,
+    )
+    logger.info(
+        "MCP 鉴权成功: tenant=%s, project=%s",
+        ctx.tenant_id, ctx.project_id,
+    )
+    return ctx
+
+
+# ----------------------------------------------------------
+# 初始化 MCP Server（延迟到 main() 中鉴权后）
 # ----------------------------------------------------------
 
 mcp = FastMCP(
@@ -42,22 +103,27 @@ mcp = FastMCP(
     ),
 )
 
-# 初始化存储和管理器（全局单例）
-_vector_store = VectorStore()
-_meta_store = MetaStore()
-_memory_manager = MemoryManager(vector_store=_vector_store, meta_store=_meta_store)
+# 业务层实例（全局单例）
+_vector_store: Optional[VectorStore] = None
+_meta_store: Optional[MetaStore] = None
+_memory_manager: Optional[MemoryManager] = None
 
-logger.info("Engrama MCP Server 初始化完成")
+
+def _init_services():
+    """初始化业务层服务"""
+    global _vector_store, _meta_store, _memory_manager
+    _vector_store = VectorStore()
+    _meta_store = MetaStore()
+    _memory_manager = MemoryManager(vector_store=_vector_store, meta_store=_meta_store)
+    logger.info("Engrama 业务层初始化完成")
 
 
 # ----------------------------------------------------------
-# MCP Tools — 记忆管理
+# MCP Tools — 记忆管理（无 tenant_id / project_id 参数）
 # ----------------------------------------------------------
 
 @mcp.tool()
 def add_memory(
-    tenant_id: str,
-    project_id: str,
     user_id: str,
     content: str,
     memory_type: str = "factual",
@@ -70,8 +136,6 @@ def add_memory(
     当你在对话中了解到用户的重要信息时，调用此工具将其存储。
 
     Args:
-        tenant_id: 租户 ID
-        project_id: 项目 ID
         user_id: 用户唯一标识
         content: 记忆内容（如 "用户喜欢安静的环境"）
         memory_type: 记忆类型，可选值: factual(事实) / preference(偏好) / episodic(经历) / session(会话)
@@ -86,8 +150,8 @@ def add_memory(
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
 
     fragment = _memory_manager.add(
-        tenant_id=tenant_id,
-        project_id=project_id,
+        tenant_id=_auth.tenant_id,
+        project_id=_auth.project_id,
         user_id=user_id,
         content=content,
         memory_type=mt,
@@ -106,8 +170,6 @@ def add_memory(
 
 @mcp.tool()
 def search_memory(
-    tenant_id: str,
-    project_id: str,
     user_id: str,
     query: str,
     limit: int = 5,
@@ -119,8 +181,6 @@ def search_memory(
     当你需要回忆关于用户的信息时，调用此工具进行语义搜索。
 
     Args:
-        tenant_id: 租户 ID
-        project_id: 项目 ID
         user_id: 用户唯一标识
         query: 搜索查询（如 "用户的饮食偏好"）
         limit: 返回结果数量上限（默认 5）
@@ -134,8 +194,8 @@ def search_memory(
             return f"错误：无效的记忆类型 '{memory_type}'"
 
     results = _memory_manager.search(
-        tenant_id=tenant_id,
-        project_id=project_id,
+        tenant_id=_auth.tenant_id,
+        project_id=_auth.project_id,
         user_id=user_id,
         query=query,
         limit=limit,
@@ -163,8 +223,6 @@ def search_memory(
 
 @mcp.tool()
 def add_message(
-    tenant_id: str,
-    project_id: str,
     user_id: str,
     content: str,
     role: str,
@@ -176,8 +234,6 @@ def add_message(
     用于保存对话上下文，方便后续检索历史会话。
 
     Args:
-        tenant_id: 租户 ID
-        project_id: 项目 ID
         user_id: 用户唯一标识
         content: 消息内容
         role: 消息角色：user / assistant / system
@@ -189,8 +245,8 @@ def add_message(
         return f"错误：无效的角色 '{role}'，可选: user, assistant, system"
 
     fragment = _memory_manager.add_message(
-        tenant_id=tenant_id,
-        project_id=project_id,
+        tenant_id=_auth.tenant_id,
+        project_id=_auth.project_id,
         user_id=user_id,
         content=content,
         role=r,
@@ -206,8 +262,6 @@ def add_message(
 
 @mcp.tool()
 def get_history(
-    tenant_id: str,
-    project_id: str,
     user_id: str,
     session_id: str,
     limit: int = 50,
@@ -216,15 +270,13 @@ def get_history(
     获取会话历史消息。
 
     Args:
-        tenant_id: 租户 ID
-        project_id: 项目 ID
         user_id: 用户唯一标识
         session_id: 会话 ID
         limit: 返回数量上限
     """
     results = _memory_manager.get_history(
-        tenant_id=tenant_id,
-        project_id=project_id,
+        tenant_id=_auth.tenant_id,
+        project_id=_auth.project_id,
         user_id=user_id,
         session_id=session_id,
         limit=limit,
@@ -243,8 +295,6 @@ def get_history(
 
 @mcp.tool()
 def delete_memory(
-    tenant_id: str,
-    project_id: str,
     user_id: str,
     memory_id: str,
 ) -> str:
@@ -252,14 +302,12 @@ def delete_memory(
     删除一条记忆。
 
     Args:
-        tenant_id: 租户 ID
-        project_id: 项目 ID
         user_id: 用户唯一标识
         memory_id: 要删除的记忆 ID
     """
     success = _memory_manager.delete(
-        tenant_id=tenant_id,
-        project_id=project_id,
+        tenant_id=_auth.tenant_id,
+        project_id=_auth.project_id,
         user_id=user_id,
         fragment_id=memory_id,
     )
@@ -273,21 +321,17 @@ def delete_memory(
 
 @mcp.tool()
 def get_user_stats(
-    tenant_id: str,
-    project_id: str,
     user_id: str,
 ) -> str:
     """
     获取用户记忆统计信息。
 
     Args:
-        tenant_id: 租户 ID
-        project_id: 项目 ID
         user_id: 用户唯一标识
     """
     stats = _memory_manager.get_stats(
-        tenant_id=tenant_id,
-        project_id=project_id,
+        tenant_id=_auth.tenant_id,
+        project_id=_auth.project_id,
         user_id=user_id,
     )
 
@@ -304,10 +348,17 @@ def get_user_stats(
 
 def main():
     """启动 Engrama MCP Server"""
+    global _auth
+
     parser = argparse.ArgumentParser(description="Engrama MCP Server")
     parser.add_argument(
+        "--api-key",
+        default=os.environ.get("ENGRAMA_API_KEY", ""),
+        help="API Key（也可通过 ENGRAMA_API_KEY 环境变量设置）",
+    )
+    parser.add_argument(
         "--transport", choices=["stdio", "sse"], default="stdio",
-        help="传输方式：stdio（默认，供 Claude Desktop/Cursor 使用）或 sse（HTTP 远程访问）",
+        help="传输方式：stdio（默认）或 sse（HTTP 远程）",
     )
     parser.add_argument(
         "--port", type=int, default=8001,
@@ -315,6 +366,13 @@ def main():
     )
     args = parser.parse_args()
 
+    # 1. 初始化业务层
+    _init_services()
+
+    # 2. 鉴权：验证 API Key 并绑定身份上下文
+    _auth = verify_and_bind(args.api_key, _meta_store)
+
+    # 3. 启动 MCP Server
     logger.info("启动 Engrama MCP Server (transport=%s)", args.transport)
 
     if args.transport == "sse":

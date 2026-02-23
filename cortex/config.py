@@ -31,7 +31,7 @@ DEFAULT_HISTORY_LIMIT = 50
 
 # API 配置
 API_TITLE = "Cortex — 通用 AI 记忆中间件"
-API_VERSION = "0.2.1"
+API_VERSION = "0.3.0"
 API_DESCRIPTION = "为各类 AI 项目提供按渠道接入、按用户隔离的记忆存储与语义检索服务。"
 
 # 管理员 Token（用于渠道管理 API 的认证）

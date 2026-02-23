@@ -18,7 +18,7 @@ DATA_DIR = Path(os.getenv("CORTEX_DATA_DIR", str(_PROJECT_ROOT / "data")))
 CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 
 # SQLite 配置
-SQLITE_DB_PATH = DATA_DIR / "cortex_meta.db"
+SQLITE_DB_PATH = DATA_DIR / "engrama_meta.db"
 
 # Embedding 模型
 # 默认使用 BAAI/bge-small-zh-v1.5（中文 C-MTEB 顶尖、仅 ~50MB、免费开源）

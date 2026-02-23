@@ -189,9 +189,9 @@ class MetaStore:
         ]
 
     def delete_project(self, project_id: str) -> bool:
-        """删除项目（同时删除关联的 API Key）"""
+        """删除项目（级联吊销关联的 API Key）"""
         conn = self._get_conn()
-        conn.execute("DELETE FROM api_keys WHERE project_id = ?", (project_id,))
+        conn.execute("UPDATE api_keys SET is_active = 0 WHERE project_id = ?", (project_id,))
         cursor = conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         conn.commit()
         deleted = cursor.rowcount > 0
@@ -215,8 +215,10 @@ class MetaStore:
         """
         if self.get_tenant(tenant_id) is None:
             raise ValueError(f"租户不存在: {tenant_id}")
-        if self.get_project(project_id) is None:
-            raise ValueError(f"项目不存在: {project_id}")
+        
+        project = self.get_project(project_id)
+        if project is None or project.tenant_id != tenant_id:
+            raise ValueError(f"项目不存在或不属于该租户: {project_id}")
 
         key_value = f"eng_{secrets.token_urlsafe(32)}"
         api_key = ApiKey(key=key_value, tenant_id=tenant_id, project_id=project_id, user_id=user_id)

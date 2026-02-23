@@ -111,3 +111,21 @@ class TestChannelManager:
 
         # API Key 也应该被删除
         assert cm.verify_api_key(api_key.key) is None
+
+    def test_personal_api_key_flow(self, cm):
+        """用户级 API Key 的完整流程：生成 → 验证 → 级联删除"""
+        tenant = cm.register_tenant("测试")
+        project = cm.create_project(tenant.id, "项目")
+
+        # 生成带 user_id 的
+        api_key = cm.generate_api_key(tenant.id, project.id, user_id="lisi")
+        assert api_key.key.startswith("eng_")
+        assert api_key.user_id == "lisi"
+
+        # 验证提取 user_id 成功
+        verified = cm.verify_api_key(api_key.key)
+        assert verified.user_id == "lisi"
+
+        # 项目删除后级联注销验证
+        cm.delete_project(project.id)
+        assert cm.verify_api_key(api_key.key) is None

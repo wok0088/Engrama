@@ -133,7 +133,8 @@ Tenant（租户：企业 / 个人开发者）
 | `GET` | `/v1/memories?user_id=xxx` | 列出记忆 |
 | `DELETE` | `/v1/memories/{id}?user_id=xxx` | 删除记忆 |
 | `GET` | `/v1/sessions/{id}/history?user_id=xxx` | 会话历史 |
-| `GET` | `/v1/users/{id}/stats` | 统计信息 |
+| `GET` | `/v1/users/me/stats` | 获取当前绑定用户的统计 (无需 user_id) |
+| `GET` | `/v1/users/{id}/stats` | 获取指定用户的统计信息 |
 
 ### 渠道管理（需要管理员 Token）
 

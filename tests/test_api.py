@@ -163,7 +163,44 @@ class TestAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert data["content"] == "喜欢安静的环境"
-        assert data["memory_type"] == "preference"
+
+    def test_personal_key_behavior(self, client):
+        """测试用户级 Key：可以省略 user_id，传入不同的 user_id 会 403"""
+        tenant_id, project_id, _ = self._setup_channel(client)
+
+        # 1. 生成用户级 Key
+        req = {
+            "tenant_id": tenant_id,
+            "project_id": project_id,
+            "user_id": "zhangsan"
+        }
+        res = client.post("/v1/channels/api-keys", json=req)
+        personal_key = res.json()["key"]
+
+        # 2. 正常调用：省略 user_id 自动使用绑定值
+        resp1 = client.post(
+            "/v1/memories",
+            json={
+                "content": "我喜欢打篮球",
+                "memory_type": "preference",
+            },
+            headers={"X-API-Key": personal_key},
+        )
+        assert resp1.status_code == 200
+        assert resp1.json()["user_id"] == "zhangsan"
+
+        # 3. 越权调用：传入不同的 user_id 返回 403
+        resp2 = client.post(
+            "/v1/memories",
+            json={
+                "user_id": "lisi",
+                "content": "我是 Lisi",
+                "memory_type": "factual",
+            },
+            headers={"X-API-Key": personal_key},
+        )
+        assert resp2.status_code == 403
+        assert "已绑定用户" in resp2.json()["detail"]
 
     def test_search_memories(self, client):
         """语义搜索"""

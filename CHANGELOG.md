@@ -15,6 +15,12 @@
 ### 🔍 改进
 - **Embedding 模型** — 默认切换为 `BAAI/bge-m3`（多语言模型，向量维度 1024），模型文件存放在项目 `data/models/` 目录下
 
+### 🐛 关键修复
+- **鉴权越权防范** — MCP/HTTP 在遇到用户级 Key 被非法跨域使用（传入不匹配的 user_id）时一致返回 403 / ValueError 拒绝访问，而不是静默覆盖
+- **可选请求字段** — HTTP Add/Search/Update 记忆路由的 `user_id` 改为 `Optional`，对 C 端用户级 Key 实现无感知调用
+- **数据响应修正** — 修复了 `get_user_stats` 返回原始传入 `user_id` 而非运行时解析 `user_id` 的绑定偏差 bug
+- **代码重构** — 移除了 MetaStore 与 ChannelManager 的冗余日志及服务器代码中的僵尸引用
+
 ## [0.3.0] - 2026-02-23
 
 ### ✨ 新功能

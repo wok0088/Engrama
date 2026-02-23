@@ -103,7 +103,7 @@ class ApiKey(BaseModel):
 
 class AddMemoryRequest(BaseModel):
     """添加记忆请求"""
-    user_id: str = Field(description="用户 ID", min_length=1, max_length=100)
+    user_id: Optional[str] = Field(default="", description="用户 ID（用户级 Key 可不传）", max_length=100)
     content: str = Field(description="记忆内容", min_length=1, max_length=10000)
     memory_type: MemoryType = Field(description="记忆类型")
     role: Optional[Role] = Field(default=None, description="消息角色（仅 session 类型）")
@@ -115,7 +115,7 @@ class AddMemoryRequest(BaseModel):
 
 class SearchMemoryRequest(BaseModel):
     """搜索记忆请求"""
-    user_id: str = Field(description="用户 ID", min_length=1, max_length=100)
+    user_id: Optional[str] = Field(default="", description="用户 ID（用户级 Key 可不传）", max_length=100)
     query: str = Field(description="搜索查询", min_length=1, max_length=1000)
     limit: int = Field(default=10, ge=1, le=100, description="返回数量上限")
     memory_type: Optional[MemoryType] = Field(default=None, description="按类型过滤")

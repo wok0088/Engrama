@@ -207,16 +207,13 @@ class TestMCPToolsPersonalKey:
         data = json.loads(result)
         assert data["status"] == "success"
 
-    def test_add_memory_override_ignored(self, services):
-        """用户级 Key：传入的 user_id 被忽略，强制使用绑定值"""
+    def test_add_memory_override_rejected(self, services):
+        """用户级 Key：传入不同的 user_id 直接返回报错"""
         self._bind_context(services)
-        from mcp_server.server import add_memory, get_user_stats
+        from mcp_server.server import add_memory
 
-        add_memory(user_id="hacker", content="偏好测试", memory_type="preference")
-
-        # 数据存储在 zhangsan 名下，不是 hacker
-        stats = json.loads(get_user_stats(user_id="zhangsan"))
-        assert stats["total_memories"] >= 1
+        result = add_memory(user_id="hacker", content="偏好测试", memory_type="preference")
+        assert "不允许操作其他用户数据" in result
 
     def test_search_no_user_id(self, services):
         """用户级 Key：搜索不需要传 user_id"""
@@ -288,6 +285,26 @@ class TestMCPToolsEnvVar:
 
         stats = json.loads(get_user_stats(user_id="explicit_user"))
         assert stats["total_memories"] == 1
+
+
+class TestMCPToolResolverEdgeCases:
+    """user_id 解析边界情况测试"""
+
+    def test_all_empty_rejected(self, services):
+        """没有任何 user_id 来源时报错"""
+        import mcp_server.server as srv
+        from mcp_server.server import AuthContext, add_memory
+
+        srv._auth = AuthContext(
+            tenant_id=services["tenant_id"],
+            project_id=services["project_id"],
+            api_key=services["service_key"],
+            user_id=None,
+            default_user_id=None,
+        )
+
+        result = add_memory(user_id="", content="无来源", memory_type="factual")
+        assert "缺少 user_id" in result
 
 
 class TestMCPToolSignature:

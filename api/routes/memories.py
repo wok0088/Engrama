@@ -271,7 +271,7 @@ def get_user_stats(user_id: str, request: Request):
         user_id=resolved_user_id,
     )
     return StatsResponse(
-        user_id=user_id,
+        user_id=resolved_user_id,
         total_memories=stats["total"],
         by_type=stats["by_type"],
     )

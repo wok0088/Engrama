@@ -32,7 +32,7 @@ import argparse
 import json
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -85,6 +85,10 @@ def _resolve_user_id(passed_user_id: str = "") -> str:
     """
     # 1. Key 绑定（最高优先级）
     if _auth.user_id:
+        if passed_user_id and passed_user_id != _auth.user_id:
+            raise ValueError(
+                f"此 API Key 已绑定用户 '{_auth.user_id}'，不允许操作其他用户数据。请不要传入 user_id 参数。"
+            )
         return _auth.user_id
 
     # 2. 调用方传入

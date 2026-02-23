@@ -227,10 +227,6 @@ class MetaStore:
             (api_key.key, api_key.tenant_id, api_key.project_id, api_key.user_id, api_key.created_at.isoformat(), 1),
         )
         conn.commit()
-        if user_id:
-            logger.info("生成用户级 API Key: tenant=%s, project=%s, user=%s", tenant_id, project_id, user_id)
-        else:
-            logger.info("生成项目级 API Key: tenant=%s, project=%s", tenant_id, project_id)
         return api_key
 
     def verify_api_key(self, key: str) -> Optional[ApiKey]:

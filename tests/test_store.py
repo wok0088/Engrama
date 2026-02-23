@@ -248,6 +248,17 @@ class TestMetaStore:
         assert meta_store.revoke_api_key(api_key.key)
         assert meta_store.verify_api_key(api_key.key) is None
 
+    def test_personal_api_key_lifecycle(self, meta_store):
+        """用户级 API Key 的生成与验证"""
+        tenant = meta_store.create_tenant("测试")
+        project = meta_store.create_project(tenant.id, "项目")
+
+        api_key = meta_store.generate_api_key(tenant.id, project.id, user_id="lisi")
+        assert api_key.user_id == "lisi"
+
+        verified = meta_store.verify_api_key(api_key.key)
+        assert verified.user_id == "lisi"
+
     def test_invalid_api_key(self, meta_store):
         """无效的 API Key 验证返回 None"""
         assert meta_store.verify_api_key("invalid_key") is None

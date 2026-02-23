@@ -49,7 +49,7 @@ async def register_tenant(body: RegisterTenantRequest, request: Request):
 
 
 @router.get("/tenants", response_model=list[TenantResponse], summary="列出租户")
-async def list_tenants(request: Request):
+def list_tenants(request: Request):
     """列出所有租户。"""
     cm = _get_channel_manager(request)
     tenants = cm.list_tenants()
@@ -64,7 +64,7 @@ async def list_tenants(request: Request):
 # ----------------------------------------------------------
 
 @router.post("/projects", response_model=ProjectResponse, summary="创建项目")
-async def create_project(body: CreateProjectRequest, request: Request):
+def create_project(body: CreateProjectRequest, request: Request):
     """在指定租户下创建一个新项目。"""
     cm = _get_channel_manager(request)
     try:
@@ -80,7 +80,7 @@ async def create_project(body: CreateProjectRequest, request: Request):
 
 
 @router.get("/projects", response_model=list[ProjectResponse], summary="列出项目")
-async def list_projects(
+def list_projects(
     request: Request,
     tenant_id: str = Query(description="租户 ID"),
 ):
@@ -96,7 +96,7 @@ async def list_projects(
 
 
 @router.delete("/projects/{project_id}", summary="删除项目")
-async def delete_project(project_id: str, request: Request):
+def delete_project(project_id: str, request: Request):
     """删除指定项目及其关联的 API Key。"""
     cm = _get_channel_manager(request)
     success = cm.delete_project(project_id)
@@ -110,7 +110,7 @@ async def delete_project(project_id: str, request: Request):
 # ----------------------------------------------------------
 
 @router.post("/api-keys", response_model=ApiKeyResponse, summary="生成 API Key")
-async def generate_api_key(body: GenerateApiKeyRequest, request: Request):
+def generate_api_key(body: GenerateApiKeyRequest, request: Request):
     """
     为指定的 tenant + project 生成一个 API Key。
 

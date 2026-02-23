@@ -2,7 +2,11 @@
 ChromaDB 向量存储
 
 封装所有与 ChromaDB 交互的底层操作，提供记忆片段的向量化存储和语义搜索。
-Collection 命名规则：{tenant_id}__{project_id}__{user_id}，确保三层数据隔离。
+
+Collection 策略（v0.2.1）：
+  - 按 Project 划分 Collection：{tenant_id}__{project_id}
+  - 用户隔离通过 metadata 中的 user_id 字段进行 where 过滤
+  - 同一 Project 下的所有用户共享一个 Collection，避免海量 Collection 问题
 
 默认使用 BAAI/bge-small-zh-v1.5 中文 Embedding 模型，
 可通过环境变量 CORTEX_EMBEDDING_MODEL 切换。
@@ -28,9 +32,8 @@ class VectorStore:
     """
     ChromaDB 向量存储
 
-    每个 tenant/project/user 组合对应一个独立的 Collection，
-    确保数据在三层结构上的完全隔离。
-    使用 sentence-transformers 提供中文友好的语义搜索。
+    每个 tenant/project 组合对应一个 Collection，
+    用户隔离通过 metadata 的 where 过滤实现。
     """
 
     def __init__(self, persist_directory: Optional[str] = None):
@@ -61,24 +64,24 @@ class VectorStore:
     # ----------------------------------------------------------
 
     @staticmethod
-    def _collection_name(tenant_id: str, project_id: str, user_id: str) -> str:
+    def _collection_name(tenant_id: str, project_id: str) -> str:
         """
-        生成 Collection 名称
+        生成 Collection 名称（按 Project 粒度）
 
-        格式：{tenant_id}__{project_id}__{user_id}
+        格式：{tenant_id}__{project_id}
         ChromaDB 要求名称 3-63 字符、仅字母数字下划线和点号。
         """
         def _sanitize(s: str) -> str:
             return s.replace("-", "_").replace("@", "_at_")
 
-        name = f"{_sanitize(tenant_id)}__{_sanitize(project_id)}__{_sanitize(user_id)}"
+        name = f"{_sanitize(tenant_id)}__{_sanitize(project_id)}"
         if len(name) > 63:
             name = name[:63]
         return name
 
-    def _get_collection(self, tenant_id: str, project_id: str, user_id: str):
-        """获取或创建指定用户的 Collection（使用自定义 Embedding 函数）"""
-        name = self._collection_name(tenant_id, project_id, user_id)
+    def _get_collection(self, tenant_id: str, project_id: str):
+        """获取或创建指定项目的 Collection（使用自定义 Embedding 函数）"""
+        name = self._collection_name(tenant_id, project_id)
         return self._client.get_or_create_collection(
             name=name,
             embedding_function=self._embedding_fn,
@@ -137,9 +140,7 @@ class VectorStore:
 
     def add(self, fragment: MemoryFragment) -> None:
         """添加记忆片段到向量数据库"""
-        collection = self._get_collection(
-            fragment.tenant_id, fragment.project_id, fragment.user_id
-        )
+        collection = self._get_collection(fragment.tenant_id, fragment.project_id)
         collection.add(
             ids=[fragment.id],
             documents=[fragment.content],
@@ -157,19 +158,22 @@ class VectorStore:
         memory_type: Optional[MemoryType] = None,
         session_id: Optional[str] = None,
     ) -> list[dict]:
-        """语义搜索记忆"""
-        collection = self._get_collection(tenant_id, project_id, user_id)
+        """语义搜索记忆（在 user_id 范围内搜索）"""
+        collection = self._get_collection(tenant_id, project_id)
 
         if collection.count() == 0:
             return []
 
-        where = self._build_where(memory_type=memory_type, session_id=session_id)
+        # 构建 where 过滤：必须包含 user_id
+        where = self._build_where(user_id=user_id, memory_type=memory_type, session_id=session_id)
+
+        # 限制 limit 不超过 collection 中的文档数量
         actual_limit = min(limit, collection.count())
 
         results = collection.query(
             query_texts=[query],
             n_results=actual_limit,
-            where=where if where else None,
+            where=where,
             include=["documents", "metadatas", "distances"],
         )
 
@@ -198,13 +202,15 @@ class VectorStore:
         limit: int = 100,
     ) -> list[dict]:
         """获取指定会话的所有消息（按创建时间排序）"""
-        collection = self._get_collection(tenant_id, project_id, user_id)
+        collection = self._get_collection(tenant_id, project_id)
 
         if collection.count() == 0:
             return []
 
+        where = self._build_where(user_id=user_id, session_id=session_id)
+
         results = collection.get(
-            where={"session_id": session_id},
+            where=where,
             limit=limit,
             include=["documents", "metadatas"],
         )
@@ -229,15 +235,16 @@ class VectorStore:
         memory_type: Optional[MemoryType] = None,
         limit: int = 100,
     ) -> list[dict]:
-        """列出记忆片段"""
-        collection = self._get_collection(tenant_id, project_id, user_id)
+        """列出记忆片段（按 user_id 过滤）"""
+        collection = self._get_collection(tenant_id, project_id)
 
         if collection.count() == 0:
             return []
 
-        where = self._build_where(memory_type=memory_type)
+        where = self._build_where(user_id=user_id, memory_type=memory_type)
+
         results = collection.get(
-            where=where if where else None,
+            where=where,
             limit=limit,
             include=["documents", "metadatas"],
         )
@@ -268,26 +275,20 @@ class VectorStore:
         """
         更新记忆片段
 
-        Args:
-            tenant_id: 租户 ID
-            project_id: 项目 ID
-            user_id: 用户 ID
-            fragment_id: 记忆片段 ID
-            content: 新的内容（会重新向量化）
-            tags: 新的标签
-            importance: 新的重要度
-            metadata: 新的扩展元数据
-
         Returns:
             更新后的记忆字典，不存在则返回 None
         """
-        collection = self._get_collection(tenant_id, project_id, user_id)
+        collection = self._get_collection(tenant_id, project_id)
         results = collection.get(ids=[fragment_id], include=["metadatas", "documents"])
 
         if not results or not results["ids"]:
             return None
 
+        # 验证 user_id 归属
         old_meta = results["metadatas"][0]
+        if old_meta.get("user_id") != user_id:
+            return None
+
         old_content = results["documents"][0]
 
         # 更新 metadata
@@ -303,7 +304,6 @@ class VectorStore:
 
         new_content = content if content is not None else old_content
 
-        # ChromaDB update
         update_kwargs = {"ids": [fragment_id], "metadatas": [new_meta]}
         if content is not None:
             update_kwargs["documents"] = [new_content]
@@ -314,8 +314,14 @@ class VectorStore:
 
     def delete(self, tenant_id: str, project_id: str, user_id: str, fragment_id: str) -> bool:
         """删除指定记忆片段"""
-        collection = self._get_collection(tenant_id, project_id, user_id)
+        collection = self._get_collection(tenant_id, project_id)
         try:
+            # 验证归属后删除
+            results = collection.get(ids=[fragment_id], include=["metadatas"])
+            if not results or not results["ids"]:
+                return False
+            if results["metadatas"][0].get("user_id") != user_id:
+                return False
             collection.delete(ids=[fragment_id])
             logger.debug("删除记忆: id=%s", fragment_id)
             return True
@@ -323,17 +329,19 @@ class VectorStore:
             return False
 
     def get_stats(self, tenant_id: str, project_id: str, user_id: str) -> dict:
-        """获取统计信息"""
-        collection = self._get_collection(tenant_id, project_id, user_id)
-        total = collection.count()
+        """获取指定用户的统计信息"""
+        collection = self._get_collection(tenant_id, project_id)
 
+        # 按 user_id 过滤获取该用户的记忆
+        where = {"user_id": user_id}
+        results = collection.get(where=where, include=["metadatas"])
+
+        total = len(results["ids"]) if results and results["ids"] else 0
         by_type: dict[str, int] = {}
-        if total > 0:
-            results = collection.get(include=["metadatas"])
-            if results and results["metadatas"]:
-                for meta in results["metadatas"]:
-                    mt = meta.get("memory_type", "unknown")
-                    by_type[mt] = by_type.get(mt, 0) + 1
+        if results and results["metadatas"]:
+            for meta in results["metadatas"]:
+                mt = meta.get("memory_type", "unknown")
+                by_type[mt] = by_type.get(mt, 0) + 1
 
         return {"total": total, "by_type": by_type}
 
@@ -341,7 +349,7 @@ class VectorStore:
         self, tenant_id: str, project_id: str, user_id: str, fragment_id: str
     ) -> None:
         """增加记忆片段的检索命中次数"""
-        collection = self._get_collection(tenant_id, project_id, user_id)
+        collection = self._get_collection(tenant_id, project_id)
         results = collection.get(ids=[fragment_id], include=["metadatas", "documents"])
         if results and results["ids"]:
             meta = results["metadatas"][0]
@@ -354,11 +362,14 @@ class VectorStore:
 
     @staticmethod
     def _build_where(
+        user_id: Optional[str] = None,
         memory_type: Optional[MemoryType] = None,
         session_id: Optional[str] = None,
     ) -> Optional[dict]:
-        """构建 ChromaDB where 过滤条件"""
+        """构建 ChromaDB where 过滤条件（始终包含 user_id）"""
         conditions = []
+        if user_id is not None:
+            conditions.append({"user_id": user_id})
         if memory_type is not None:
             conditions.append({"memory_type": memory_type.value})
         if session_id is not None:

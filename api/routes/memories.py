@@ -59,7 +59,7 @@ def _dict_to_response(item: dict) -> MemoryResponse:
 # ----------------------------------------------------------
 
 @router.post("/memories", response_model=MemoryResponse, summary="添加记忆")
-async def add_memory(body: AddMemoryRequest, request: Request):
+def add_memory(body: AddMemoryRequest, request: Request):
     """
     添加一条记忆片段。
 
@@ -95,7 +95,7 @@ async def add_memory(body: AddMemoryRequest, request: Request):
 
 
 @router.post("/memories/search", response_model=SearchResultResponse, summary="语义搜索")
-async def search_memories(body: SearchMemoryRequest, request: Request):
+def search_memories(body: SearchMemoryRequest, request: Request):
     """
     语义搜索记忆。
 
@@ -116,7 +116,7 @@ async def search_memories(body: SearchMemoryRequest, request: Request):
 
 
 @router.get("/memories", response_model=list[MemoryResponse], summary="列出记忆")
-async def list_memories(
+def list_memories(
     request: Request,
     user_id: str = Query(description="用户 ID"),
     memory_type: Optional[MemoryType] = Query(default=None, description="按类型过滤"),
@@ -135,7 +135,7 @@ async def list_memories(
 
 
 @router.put("/memories/{fragment_id}", response_model=MemoryResponse, summary="更新记忆")
-async def update_memory(
+def update_memory(
     fragment_id: str,
     body: UpdateMemoryRequest,
     request: Request,
@@ -163,7 +163,7 @@ async def update_memory(
 
 
 @router.delete("/memories/{fragment_id}", summary="删除记忆")
-async def delete_memory(
+def delete_memory(
     fragment_id: str,
     request: Request,
     user_id: str = Query(description="用户 ID"),
@@ -190,7 +190,7 @@ async def delete_memory(
     response_model=HistoryResponse,
     summary="获取会话历史",
 )
-async def get_session_history(
+def get_session_history(
     session_id: str,
     request: Request,
     user_id: str = Query(description="用户 ID"),
@@ -222,7 +222,7 @@ async def get_session_history(
     response_model=StatsResponse,
     summary="获取统计信息",
 )
-async def get_user_stats(user_id: str, request: Request):
+def get_user_stats(user_id: str, request: Request):
     """获取指定用户的记忆统计信息。"""
     manager = _get_manager(request)
     stats = manager.get_stats(

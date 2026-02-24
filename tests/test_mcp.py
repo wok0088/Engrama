@@ -17,14 +17,8 @@ from engrama.memory_manager import MemoryManager
 
 
 @pytest.fixture
-def services(tmp_dir, monkeypatch):
+def services():
     """初始化业务层服务和一个项目级 API Key"""
-    monkeypatch.setenv("ENGRAMA_DATA_DIR", tmp_dir)
-
-    # 因为是用sqlite测试，需要手动指定一个测试db路径
-    import engrama.config as config
-
-
     meta_store = create_meta_store()
 
     vector_store = QdrantStore(meta_store=meta_store)

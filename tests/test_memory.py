@@ -16,7 +16,7 @@ from engrama.memory_manager import MemoryManager
 
 
 @pytest.fixture
-def manager(tmp_dir, monkeypatch):
+def manager():
     """创建 MemoryManager 实例"""
     import engrama.config as config
 

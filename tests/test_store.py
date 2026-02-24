@@ -18,17 +18,14 @@ from engrama.store import create_meta_store
 # Fixtures
 # ============================================================
 
-@pytest.fixture
-def meta_store(tmp_dir, monkeypatch):
+@pytest.fixture(scope="module")
+def meta_store():
     """创建 MetaStore 实例"""
-    import engrama.config as config
-
-
     return create_meta_store()
 
 
-@pytest.fixture
-def vector_store(tmp_dir, meta_store):
+@pytest.fixture(scope="module")
+def vector_store(meta_store):
     return QdrantStore(meta_store=meta_store)
 
 

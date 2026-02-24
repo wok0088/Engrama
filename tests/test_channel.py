@@ -13,12 +13,9 @@ from engrama.store import create_meta_store
 from engrama.channel_manager import ChannelManager
 
 
-@pytest.fixture
-def cm(tmp_dir, monkeypatch):
+@pytest.fixture(scope="module")
+def cm():
     """创建 ChannelManager 实例"""
-    import engrama.config as config
-
-
     ms = create_meta_store()
     return ChannelManager(meta_store=ms)
 

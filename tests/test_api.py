@@ -13,20 +13,14 @@ from fastapi.testclient import TestClient
 from engrama import config
 
 
-@pytest.fixture
-def client(tmp_dir, monkeypatch):
-    """创建测试客户端，使用临时目录存储数据"""
-    # 使用 monkeypatch.setattr 替代 os.environ，确保配置模块级常量被正确覆盖
-    monkeypatch.setattr(config, "DATA_DIR", tmp_dir)
-
-
-    monkeypatch.setattr(config, "ADMIN_TOKEN", "")
-
+@pytest.fixture(scope="module")
+def client():
+    """创建测试客户端"""
     from api.main import create_app
     app = create_app()
 
-    with TestClient(app) as client:
-        yield client
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 class TestAPI:

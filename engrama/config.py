@@ -9,7 +9,10 @@ Engrama 配置管理
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+# Load environment variables from .env file (if it exists)
+load_dotenv()
 
 # 项目根目录
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -20,20 +23,20 @@ DATA_DIR = Path(os.getenv("ENGRAMA_DATA_DIR", str(_PROJECT_ROOT / "data")))
 # Qdrant 配置
 QDRANT_HOST = os.getenv("ENGRAMA_QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("ENGRAMA_QDRANT_PORT", "6333"))
-QDRANT_API_KEY = os.getenv("ENGRAMA_QDRANT_API_KEY", "qTK78TeyDTNVkp")
+QDRANT_API_KEY = os.getenv("ENGRAMA_QDRANT_API_KEY", "")
 
 # 数据库类型 (强制使用 postgres)
 DB_TYPE = os.getenv("ENGRAMA_DB_TYPE", "postgres")
 
 # PostgreSQL 连接 URI (如 postgresql://user:pass@localhost:5432/engrama)
-PG_URI = os.getenv("ENGRAMA_PG_URI", "postgresql://agent_admin:SI62FbBcrYh5IN@localhost:5432/long_term_memory")
+PG_URI = os.getenv("ENGRAMA_PG_URI", "postgresql://localhost:5432/long_term_memory")
 
 # Redis 配置 (如 redis://localhost:6379/0)
 REDIS_URL = os.getenv("ENGRAMA_REDIS_URL", "")
 
 # Embedding TEI 服务配置
 EMBEDDING_API_URL = os.getenv("ENGRAMA_EMBEDDING_API_URL", "http://localhost:8080")
-EMBEDDING_API_KEY = os.getenv("ENGRAMA_EMBEDDING_API_KEY", "0S8MswESajS6l8")
+EMBEDDING_API_KEY = os.getenv("ENGRAMA_EMBEDDING_API_KEY", "")
 
 # 模型维度 (BGE-m3 为 1024)
 EMBEDDING_VECTOR_SIZE = 1024

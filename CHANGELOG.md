@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/) 版本规范。
 
+## [0.4.3] - 2026-02-23
+
+### 🐛 缺陷修复
+- **速率限制器逻辑修复** — `rate_limiter.py` 修复了 `del` 后被 `defaultdict` 立即重建导致清理无效的 bug，重构为先过滤再判断的正确流程。
+- **SQLite 外键约束生效** — `meta_store.py` 新增 `PRAGMA foreign_keys=ON`，使表定义中的 `FOREIGN KEY` 声明真正生效，防止数据完整性被破坏。
+- **级联删除适配外键** — 删除租户/项目时，关联的 API Key 从软删除改为物理删除，与启用的外键约束保持一致，消除 `IntegrityError`。
+- **Collection 名称哈希碰撞风险降低** — `vector_store.py` 将 `_collection_name` 的截断后缀哈希从 MD5 改为 SHA-256，碰撞概率从 2^-32 降至 2^-32（同样 8 字符，但 SHA-256 分布更均匀）。
+- **`_sanitize` 覆盖面扩大** — 使用正则 `[^a-zA-Z0-9_]` 替代手工替换 `-` 和 `@`，能正确处理空格、斜杠、点号、中文等 ChromaDB 不允许的字符。
+
+### 🔧 改进
+- **API 响应字段语义修正** — `SearchResultResponse` 和 `HistoryResponse` 的 `total` 字段重命名为 `count`，明确表示"本次返回数量"而非误导性的"总匹配数"。
+- **`get_stats` 加载上限** — 统计查询增加 `limit=10000` 防护，避免海量记忆时一次性加载全部 metadata 导致内存问题。
+- **测试基础设施优化** — 提取重复的 `tmp_dir` fixture 到 `tests/conftest.py`，消除 6 个测试文件中的重复定义；`test_mcp.py` 改用 `monkeypatch.setenv` 替代直接操作 `os.environ`，确保异常退出时环境变量被正确清理。
+
 ## [0.4.2] - 2026-02-23
 
 ### 🐛 缺陷修复 & 安全加固

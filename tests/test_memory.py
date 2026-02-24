@@ -5,30 +5,25 @@
 """
 
 import os
-import shutil
-import tempfile
 
 import pytest
 
 from engrama.models import MemoryType, Role
 from engrama.store.vector_store import VectorStore
-from engrama.store.meta_store import MetaStore
+from engrama.store.base_meta_store import BaseMetaStore
+from engrama.store import create_meta_store
 from engrama.memory_manager import MemoryManager
 
 
 @pytest.fixture
-def tmp_dir():
-    """创建临时目录"""
-    d = tempfile.mkdtemp()
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
-
-
-@pytest.fixture
-def manager(tmp_dir):
+def manager(tmp_dir, monkeypatch):
     """创建 MemoryManager 实例"""
+    import engrama.config as config
+    monkeypatch.setattr(config, "DB_TYPE", "sqlite")
+    monkeypatch.setattr(config, "SQLITE_DB_PATH", os.path.join(tmp_dir, "meta.db"))
+
     vs = VectorStore(persist_directory=os.path.join(tmp_dir, "chroma"))
-    ms = MetaStore(db_path=os.path.join(tmp_dir, "meta.db"))
+    ms = create_meta_store()
     return MemoryManager(vector_store=vs, meta_store=ms)
 
 

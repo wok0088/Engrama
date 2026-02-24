@@ -8,7 +8,8 @@ from typing import Optional
 
 from engrama.logger import get_logger
 from engrama.models import ApiKey, Project, Tenant
-from engrama.store.meta_store import MetaStore
+from engrama.store.base_meta_store import BaseMetaStore
+from engrama.store import create_meta_store
 
 logger = get_logger(__name__)
 
@@ -20,8 +21,10 @@ class ChannelManager:
     提供租户注册、项目管理和 API Key 管理的业务接口。
     """
 
-    def __init__(self, meta_store: Optional[MetaStore] = None):
-        self._meta_store = meta_store or MetaStore()
+    def __init__(self, meta_store: Optional[BaseMetaStore] = None):
+        self._meta_store = meta_store or create_meta_store()
+        from engrama.store.vector_store import VectorStore
+        self._vector_store = VectorStore()
 
     # ----------------------------------------------------------
     # 租户管理
@@ -40,8 +43,15 @@ class ChannelManager:
         return self._meta_store.list_tenants()
 
     def delete_tenant(self, tenant_id: str) -> bool:
-        """删除租户（级联吊销 Key + 删除项目 + 删除租户，不清理 ChromaDB）"""
-        return self._meta_store.delete_tenant(tenant_id)
+        """删除租户（级联吊销 Key + 删除项目 + 删除租户）"""
+        # 获取该租户下的所有项目用于删除 ChromaDB 集合
+        projects = self.list_projects(tenant_id)
+
+        success = self._meta_store.delete_tenant(tenant_id)
+        if success:
+            for p in projects:
+                self._vector_store.delete_collection(tenant_id, p.id)
+        return success
 
     # ----------------------------------------------------------
     # 项目管理
@@ -61,7 +71,10 @@ class ChannelManager:
 
     def delete_project(self, project_id: str, tenant_id: str) -> bool:
         """删除项目（需验证 tenant_id 归属）"""
-        return self._meta_store.delete_project(project_id, tenant_id=tenant_id)
+        success = self._meta_store.delete_project(project_id, tenant_id=tenant_id)
+        if success:
+            self._vector_store.delete_collection(tenant_id, project_id)
+        return success
 
     # ----------------------------------------------------------
     # API Key 管理

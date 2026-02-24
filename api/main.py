@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from engrama import config
 from engrama.logger import get_logger
 from engrama.store.vector_store import VectorStore
-from engrama.store.meta_store import MetaStore
+from engrama.store import create_meta_store
 from engrama.memory_manager import MemoryManager
 from engrama.channel_manager import ChannelManager
 from api.middleware import ApiKeyAuthMiddleware
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 
     # 初始化存储层
     vector_store = VectorStore()
-    meta_store = MetaStore()
+    meta_store = create_meta_store()
 
     # 初始化业务层
     app.state.memory_manager = MemoryManager(
@@ -62,15 +62,17 @@ def create_app() -> FastAPI:
 
     # CORS 配置
     origins = config.CORS_ORIGINS
+    allow_credentials = True
     if origins == "*":
         allow_origins = ["*"]
+        allow_credentials = False
     else:
         allow_origins = [o.strip() for o in origins.split(",") if o.strip()]
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
-        allow_credentials=True,
+        allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )

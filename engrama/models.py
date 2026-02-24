@@ -168,7 +168,7 @@ class MemoryResponse(BaseModel):
 class SearchResultResponse(BaseModel):
     """搜索结果响应"""
     results: list[MemoryResponse]
-    total: int
+    count: int = Field(description="本次返回的结果数量")
 
 
 class RegisterTenantRequest(BaseModel):
@@ -235,7 +235,7 @@ class HistoryResponse(BaseModel):
     """会话历史响应"""
     session_id: str
     messages: list[MemoryResponse]
-    total: int
+    count: int = Field(description="本次返回的消息数量")
 
 
 class UpdateMemoryRequest(BaseModel):

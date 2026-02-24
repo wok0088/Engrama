@@ -15,7 +15,7 @@
 注意：渠道管理路由不需要 API Key 认证（因为认证本身就依赖渠道管理）。
 """
 
-from fastapi import APIRouter, Request, Query, HTTPException
+from fastapi import APIRouter, Request, Query, HTTPException, Depends
 
 from engrama.models import (
     RegisterTenantRequest,
@@ -31,7 +31,7 @@ from engrama.channel_manager import ChannelManager
 router = APIRouter(prefix="/v1/channels", tags=["渠道管理"])
 
 
-def _get_channel_manager(request: Request) -> ChannelManager:
+def get_channel_manager(request: Request) -> ChannelManager:
     """从请求中获取 ChannelManager 实例"""
     return request.app.state.channel_manager
 
@@ -41,9 +41,12 @@ def _get_channel_manager(request: Request) -> ChannelManager:
 # ----------------------------------------------------------
 
 @router.post("/tenants", response_model=TenantResponse, summary="注册租户")
-def register_tenant(body: RegisterTenantRequest, request: Request):
+def register_tenant(
+    body: RegisterTenantRequest,
+    request: Request,
+    cm: ChannelManager = Depends(get_channel_manager),
+):
     """注册一个新租户。"""
-    cm = _get_channel_manager(request)
     tenant = cm.register_tenant(body.name)
     return TenantResponse(
         id=tenant.id,
@@ -53,9 +56,11 @@ def register_tenant(body: RegisterTenantRequest, request: Request):
 
 
 @router.get("/tenants", response_model=list[TenantResponse], summary="列出租户")
-def list_tenants(request: Request):
+def list_tenants(
+    request: Request,
+    cm: ChannelManager = Depends(get_channel_manager),
+):
     """列出所有租户。"""
-    cm = _get_channel_manager(request)
     tenants = cm.list_tenants()
     return [
         TenantResponse(id=t.id, name=t.name, created_at=t.created_at)
@@ -64,14 +69,17 @@ def list_tenants(request: Request):
 
 
 @router.delete("/tenants/{tenant_id}", summary="删除租户")
-def delete_tenant(tenant_id: str, request: Request):
+def delete_tenant(
+    tenant_id: str,
+    request: Request,
+    cm: ChannelManager = Depends(get_channel_manager),
+):
     """
     删除指定租户及其所有项目和 API Key。
 
     注意：不清理 ChromaDB 向量数据，仅通过 API Key 失效让数据"不可访问"，
     作为误删保护机制。
     """
-    cm = _get_channel_manager(request)
     success = cm.delete_tenant(tenant_id)
     if not success:
         raise HTTPException(status_code=404, detail="租户不存在")
@@ -83,9 +91,12 @@ def delete_tenant(tenant_id: str, request: Request):
 # ----------------------------------------------------------
 
 @router.post("/projects", response_model=ProjectResponse, summary="创建项目")
-def create_project(body: CreateProjectRequest, request: Request):
+def create_project(
+    body: CreateProjectRequest,
+    request: Request,
+    cm: ChannelManager = Depends(get_channel_manager),
+):
     """在指定租户下创建一个新项目。"""
-    cm = _get_channel_manager(request)
     try:
         project = cm.create_project(body.tenant_id, body.name)
     except ValueError as e:
@@ -102,9 +113,9 @@ def create_project(body: CreateProjectRequest, request: Request):
 def list_projects(
     request: Request,
     tenant_id: str = Query(description="租户 ID"),
+    cm: ChannelManager = Depends(get_channel_manager),
 ):
     """列出指定租户下的所有项目。"""
-    cm = _get_channel_manager(request)
     projects = cm.list_projects(tenant_id)
     return [
         ProjectResponse(
@@ -119,9 +130,9 @@ def delete_project(
     project_id: str,
     request: Request,
     tenant_id: str = Query(description="租户 ID（验证项目归属）"),
+    cm: ChannelManager = Depends(get_channel_manager),
 ):
     """删除指定项目及其关联的 API Key。需传入 tenant_id 验证归属关系。"""
-    cm = _get_channel_manager(request)
     success = cm.delete_project(project_id, tenant_id=tenant_id)
     if not success:
         raise HTTPException(status_code=404, detail="项目不存在或不属于该租户")
@@ -133,14 +144,17 @@ def delete_project(
 # ----------------------------------------------------------
 
 @router.post("/api-keys", response_model=ApiKeyResponse, summary="生成 API Key")
-def generate_api_key(body: GenerateApiKeyRequest, request: Request):
+def generate_api_key(
+    body: GenerateApiKeyRequest,
+    request: Request,
+    cm: ChannelManager = Depends(get_channel_manager),
+):
     """
     为指定的 tenant + project 生成一个 API Key。
 
     可选传入 user_id 生成用户级 Key（C 端），不传则为项目级 Key（B 端）。
     ⚠️ API Key 只在创建时展示一次，请妥善保存。
     """
-    cm = _get_channel_manager(request)
     try:
         api_key = cm.generate_api_key(body.tenant_id, body.project_id, user_id=body.user_id)
     except ValueError as e:
@@ -159,9 +173,9 @@ def generate_api_key(body: GenerateApiKeyRequest, request: Request):
 def list_api_keys(
     request: Request,
     project_id: str = Query(description="项目 ID"),
+    cm: ChannelManager = Depends(get_channel_manager),
 ):
     """列出指定项目下的所有 API Key（不暴露完整 Key 值）。"""
-    cm = _get_channel_manager(request)
     keys = cm.list_api_keys(project_id)
     return [
         ApiKeyListItem(
@@ -177,9 +191,12 @@ def list_api_keys(
 
 
 @router.delete("/api-keys/{key_id}", summary="吊销 API Key")
-def revoke_api_key(key_id: str, request: Request):
+def revoke_api_key(
+    key_id: str,
+    request: Request,
+    cm: ChannelManager = Depends(get_channel_manager),
+):
     """按 key_id 吊销指定的 API Key。"""
-    cm = _get_channel_manager(request)
     success = cm.revoke_api_key(key_id)
     if not success:
         raise HTTPException(status_code=404, detail="API Key 不存在或已吊销")

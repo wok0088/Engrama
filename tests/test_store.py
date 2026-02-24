@@ -5,14 +5,13 @@
 """
 
 import os
-import shutil
-import tempfile
 
 import pytest
 
 from engrama.models import MemoryFragment, MemoryType, Role
 from engrama.store.vector_store import VectorStore
-from engrama.store.meta_store import MetaStore
+from engrama.store.base_meta_store import BaseMetaStore
+from engrama.store import create_meta_store
 
 
 # ============================================================
@@ -20,23 +19,20 @@ from engrama.store.meta_store import MetaStore
 # ============================================================
 
 @pytest.fixture
-def tmp_dir():
-    """创建临时目录，测试后自动清理"""
-    d = tempfile.mkdtemp()
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
-
-
-@pytest.fixture
-def vector_store(tmp_dir):
+def vector_store(tmp_dir, monkeypatch):
     """创建 VectorStore 实例"""
+    import engrama.config as config
+    monkeypatch.setattr(config, "SQLITE_DB_PATH", os.path.join(tmp_dir, "meta.db"))
     return VectorStore(persist_directory=os.path.join(tmp_dir, "chroma"))
 
 
 @pytest.fixture
-def meta_store(tmp_dir):
+def meta_store(tmp_dir, monkeypatch):
     """创建 MetaStore 实例"""
-    return MetaStore(db_path=os.path.join(tmp_dir, "meta.db"))
+    import engrama.config as config
+    monkeypatch.setattr(config, "DB_TYPE", "sqlite")
+    monkeypatch.setattr(config, "SQLITE_DB_PATH", os.path.join(tmp_dir, "meta.db"))
+    return create_meta_store()
 
 
 # ============================================================

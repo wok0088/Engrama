@@ -28,7 +28,8 @@ Engrama 是一个**轻量级、通用的 AI 记忆中间件**，解决 AI 项目
 
 | 版本 | 状态 | 说明 |
 |---|---|---|
-| **v0.4.2** | ✅ 当前版本 | Code Review 修复加固 + 全面测试覆盖 |
+| **v0.4.3** | ✅ 当前版本 | 外键约束生效 + 速率限制修复 + 测试基础设施优化 |
+| v0.4.2 | 🔖 历史版本 | Code Review 修复加固 + 全面测试覆盖 |
 | v0.4.0 | 🔖 历史版本 | 生产化加固 + MCP Server (鉴权) |
 | v1.0.0 | 🔮 规划中 | 记忆智能化（摘要、冲突检测、淘汰策略） |
 | v2.0.0 | 🔮 规划中 | 平台化（Web UI、SDK） |
@@ -288,7 +289,7 @@ engrama/
 ├── mcp_server/              # MCP Server
 │   ├── server.py            # MCP Tools 定义
 │   └── __main__.py          # 入口
-├── tests/                   # 测试（74 个，涵盖鉴权和隔离边界测试）
+├── tests/                   # 测试（89 个，涵盖鉴权和隔离边界测试）
 ├── Dockerfile               # Docker 镜像构建
 ├── docker-compose.yml       # Docker Compose 编排
 ├── data/                    # 运行时数据（自动生成）

@@ -13,7 +13,7 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Request, Query, HTTPException
+from fastapi import APIRouter, Request, Query, HTTPException, Depends
 
 from engrama.models import (
     AddMemoryRequest,
@@ -30,42 +30,55 @@ from engrama.memory_manager import MemoryManager
 router = APIRouter(prefix="/v1", tags=["记忆管理"])
 
 
-def _get_manager(request: Request) -> MemoryManager:
+def get_memory_manager(request: Request) -> MemoryManager:
     """从请求中获取 MemoryManager 实例"""
     return request.app.state.memory_manager
 
 
-def _resolve_user_id(request: Request, request_user_id: str) -> str:
+def resolve_user_id(request: Request, user_id: str = Query(default="", description="用户 ID（用户级 Key 可不传）")) -> str:
     """
     解析最终使用的 user_id
 
     优先级：
     1. API Key 绑定的 user_id（不可覆盖）
     2. 请求中传入的 user_id
-
-    安全规则：
-    - 用户级 Key（有绑定 user_id）：强制使用绑定值。
-      传入不同值 → 403；传入相同值或不传 → 使用绑定值
-    - 项目级 Key（无绑定 user_id）：必须传入 user_id
     """
     bound_user_id = getattr(request.state, "bound_user_id", None)
 
     if bound_user_id:
-        # 用户级 Key：强制使用绑定值
-        if request_user_id and request_user_id != bound_user_id:
+        if user_id and user_id != bound_user_id:
             raise HTTPException(
                 status_code=403,
                 detail=f"此 API Key 已绑定用户 '{bound_user_id}'，不允许操作其他用户数据",
             )
         return bound_user_id
     else:
-        # 项目级 Key：必须传入
-        if not request_user_id:
+        if not user_id:
             raise HTTPException(
                 status_code=400,
                 detail="缺少 user_id 参数（项目级 API Key 必须传入 user_id）",
             )
-        return request_user_id
+        return user_id
+
+
+def resolve_user_id_from_body(request: Request, body_user_id: str) -> str:
+    """从请求体中解析 user_id"""
+    bound_user_id = getattr(request.state, "bound_user_id", None)
+
+    if bound_user_id:
+        if body_user_id and body_user_id != bound_user_id:
+            raise HTTPException(
+                status_code=403,
+                detail=f"此 API Key 已绑定用户 '{bound_user_id}'，不允许操作其他用户数据",
+            )
+        return bound_user_id
+    else:
+        if not body_user_id:
+            raise HTTPException(
+                status_code=400,
+                detail="缺少 user_id 参数（项目级 API Key 必须传入 user_id）",
+            )
+        return body_user_id
 
 
 def _dict_to_response(item: dict) -> MemoryResponse:
@@ -92,14 +105,17 @@ def _dict_to_response(item: dict) -> MemoryResponse:
 # ----------------------------------------------------------
 
 @router.post("/memories", response_model=MemoryResponse, summary="添加记忆")
-def add_memory(body: AddMemoryRequest, request: Request):
+def add_memory(
+    body: AddMemoryRequest,
+    request: Request,
+    manager: MemoryManager = Depends(get_memory_manager),
+):
     """
     添加一条记忆片段。
 
     需要通过 X-API-Key 认证，tenant_id 和 project_id 从 API Key 自动获取。
     """
-    manager = _get_manager(request)
-    user_id = _resolve_user_id(request, body.user_id)
+    user_id = resolve_user_id_from_body(request, body.user_id)
     fragment = manager.add(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
@@ -116,14 +132,17 @@ def add_memory(body: AddMemoryRequest, request: Request):
 
 
 @router.post("/memories/search", response_model=SearchResultResponse, summary="语义搜索")
-def search_memories(body: SearchMemoryRequest, request: Request):
+def search_memories(
+    body: SearchMemoryRequest,
+    request: Request,
+    manager: MemoryManager = Depends(get_memory_manager),
+):
     """
     语义搜索记忆。
 
     使用 POST 而非 GET，因为搜索条件可能很复杂。
     """
-    manager = _get_manager(request)
-    user_id = _resolve_user_id(request, body.user_id)
+    user_id = resolve_user_id_from_body(request, body.user_id)
     results = manager.search(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
@@ -134,25 +153,26 @@ def search_memories(body: SearchMemoryRequest, request: Request):
         session_id=body.session_id,
     )
     items = [_dict_to_response(r) for r in results]
-    return SearchResultResponse(results=items, total=len(items))
+    return SearchResultResponse(results=items, count=len(items))
 
 
 @router.get("/memories", response_model=list[MemoryResponse], summary="列出记忆")
 def list_memories(
     request: Request,
-    user_id: str = Query(default="", description="用户 ID（用户级 Key 可不传）"),
+    user_id: str = Depends(resolve_user_id),
     memory_type: Optional[MemoryType] = Query(default=None, description="按类型过滤"),
     limit: int = Query(default=100, ge=1, le=1000, description="返回数量上限"),
+    offset: int = Query(default=0, ge=0, description="分页偏移量"),
+    manager: MemoryManager = Depends(get_memory_manager),
 ):
     """列出指定用户的记忆片段，可按类型过滤。"""
-    manager = _get_manager(request)
-    resolved_user_id = _resolve_user_id(request, user_id)
     results = manager.list_memories(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=resolved_user_id,
+        user_id=user_id,
         memory_type=memory_type,
         limit=limit,
+        offset=offset,
     )
     return [_dict_to_response(r) for r in results]
 
@@ -162,6 +182,7 @@ def update_memory(
     fragment_id: str,
     body: UpdateMemoryRequest,
     request: Request,
+    manager: MemoryManager = Depends(get_memory_manager),
 ):
     """
     更新指定记忆片段。
@@ -169,8 +190,7 @@ def update_memory(
     只需传入要更新的字段，未传入的字段保持不变。
     如果更新了 content，会自动重新向量化。
     """
-    manager = _get_manager(request)
-    user_id = _resolve_user_id(request, body.user_id)
+    user_id = resolve_user_id_from_body(request, body.user_id)
     result = manager.update(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
@@ -190,15 +210,14 @@ def update_memory(
 def delete_memory(
     fragment_id: str,
     request: Request,
-    user_id: str = Query(default="", description="用户 ID（用户级 Key 可不传）"),
+    user_id: str = Depends(resolve_user_id),
+    manager: MemoryManager = Depends(get_memory_manager),
 ):
     """删除指定的记忆片段。"""
-    manager = _get_manager(request)
-    resolved_user_id = _resolve_user_id(request, user_id)
     success = manager.delete(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=resolved_user_id,
+        user_id=user_id,
         fragment_id=fragment_id,
     )
     if not success:
@@ -218,24 +237,25 @@ def delete_memory(
 def get_session_history(
     session_id: str,
     request: Request,
-    user_id: str = Query(default="", description="用户 ID（用户级 Key 可不传）"),
+    user_id: str = Depends(resolve_user_id),
     limit: int = Query(default=100, ge=1, le=1000, description="返回数量上限"),
+    offset: int = Query(default=0, ge=0, description="分页偏移量"),
+    manager: MemoryManager = Depends(get_memory_manager),
 ):
     """获取指定会话的消息历史，按时间排序。"""
-    manager = _get_manager(request)
-    resolved_user_id = _resolve_user_id(request, user_id)
     results = manager.get_history(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=resolved_user_id,
+        user_id=user_id,
         session_id=session_id,
         limit=limit,
+        offset=offset,
     )
     messages = [_dict_to_response(r) for r in results]
     return HistoryResponse(
         session_id=session_id,
         messages=messages,
-        total=len(messages),
+        count=len(messages),
     )
 
 
@@ -250,9 +270,11 @@ def get_session_history(
     response_model=StatsResponse,
     summary="获取当前(绑定)用户的统计信息",
 )
-def get_my_stats(request: Request):
+def get_my_stats(
+    request: Request,
+    manager: MemoryManager = Depends(get_memory_manager),
+):
     """获取当前绑定用户（需用户级 Key）的记忆统计信息。"""
-    manager = _get_manager(request)
     # 不允许项目级 Key 访问 /users/me/stats (因为不知道是谁的 stats)
     bound_user_id = getattr(request.state, "bound_user_id", None)
     if not bound_user_id:
@@ -277,17 +299,19 @@ def get_my_stats(request: Request):
     response_model=StatsResponse,
     summary="获取特定用户的统计信息",
 )
-def get_user_stats(user_id: str, request: Request):
+def get_user_stats(
+    user_id: str,
+    request: Request,
+    manager: MemoryManager = Depends(get_memory_manager),
+):
     """获取指定用户的记忆统计信息。"""
-    manager = _get_manager(request)
-    resolved_user_id = _resolve_user_id(request, user_id)
     stats = manager.get_stats(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=resolved_user_id,
+        user_id=user_id,
     )
     return StatsResponse(
-        user_id=resolved_user_id,
+        user_id=user_id,
         total_memories=stats["total"],
         by_type=stats["by_type"],
     )

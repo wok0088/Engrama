@@ -6,20 +6,11 @@ API 集成测试
 """
 
 import os
-import shutil
-import tempfile
 
 import pytest
 from fastapi.testclient import TestClient
 
 from engrama import config
-
-
-@pytest.fixture
-def tmp_dir():
-    d = tempfile.mkdtemp()
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
 
 
 @pytest.fixture
@@ -380,7 +371,7 @@ class TestAPI:
         }, headers=headers)
         assert resp.status_code == 200
         data = resp.json()
-        assert data["total"] > 0
+        assert data["count"] > 0
         assert "score" in data["results"][0]
 
     def test_list_memories(self, client):
@@ -450,7 +441,7 @@ class TestAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert data["session_id"] == "s1"
-        assert data["total"] == 2
+        assert data["count"] == 2
         assert data["messages"][0]["role"] == "user"
 
     # ----------------------------------------------------------

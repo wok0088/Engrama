@@ -10,7 +10,8 @@ from typing import Optional
 from engrama.logger import get_logger
 from engrama.models import MemoryFragment, MemoryType, Role
 from engrama.store.vector_store import VectorStore
-from engrama.store.meta_store import MetaStore
+from engrama.store.base_meta_store import BaseMetaStore
+from engrama.store import create_meta_store
 
 logger = get_logger(__name__)
 
@@ -43,10 +44,10 @@ class MemoryManager:
     def __init__(
         self,
         vector_store: Optional[VectorStore] = None,
-        meta_store: Optional[MetaStore] = None,
+        meta_store: Optional[BaseMetaStore] = None,
     ):
         self._vector_store = vector_store or VectorStore()
-        self._meta_store = meta_store or MetaStore()
+        self._meta_store = meta_store or create_meta_store()
 
     # ----------------------------------------------------------
     # 核心 API
@@ -185,6 +186,7 @@ class MemoryManager:
         user_id: str,
         session_id: str,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[dict]:
         """获取会话历史（按时间排序）"""
         return self._vector_store.get_by_session(
@@ -193,6 +195,7 @@ class MemoryManager:
             user_id=user_id,
             session_id=session_id,
             limit=limit,
+            offset=offset,
         )
 
     def get_history_for_llm(
@@ -223,6 +226,7 @@ class MemoryManager:
         user_id: str,
         memory_type: Optional[MemoryType] = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[dict]:
         """列出记忆片段"""
         return self._vector_store.list_memories(
@@ -231,6 +235,7 @@ class MemoryManager:
             user_id=user_id,
             memory_type=memory_type,
             limit=limit,
+            offset=offset,
         )
 
     def delete(

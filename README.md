@@ -28,7 +28,8 @@ Engrama 是一个**轻量级、通用的 AI 记忆中间件**，解决 AI 项目
 
 | 版本 | 状态 | 说明 |
 |---|---|---|
-| **v0.4.4** | ✅ 当前版本 | 移除 numpy/transformers 降级限制 + 修复 Python 3.12 Date DeprecationWarning |
+| **v0.5.0** | ✅ 当前版本 | 引入独立的 TEI (Text Embeddings Inference) 引擎取代进程内加载，支持 PostgreSQL 与 Qdrant 作为后端存储 |
+| v0.4.4 | 🔖 历史版本 | 移除 numpy/transformers 降级限制 + 修复 Python 3.12 Date DeprecationWarning |
 | v0.4.3 | 🔖 历史版本 | 外键约束生效 + 速率限制修复 + 测试基础设施优化 |
 | v0.4.0 | 🔖 历史版本 | 生产化加固 + MCP Server (鉴权) |
 | v1.0.0 | 🔮 规划中 | 记忆智能化（摘要、冲突检测、淘汰策略） |

@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from engrama import config
 from engrama.logger import get_logger
-from engrama.store.vector_store import VectorStore
+from engrama.store.qdrant_store import QdrantStore
 from engrama.store import create_meta_store
 from engrama.memory_manager import MemoryManager
 from engrama.channel_manager import ChannelManager
@@ -28,18 +28,21 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时初始化存储和管理器"""
     logger.info("Engrama %s 正在启动...", config.API_VERSION)
-    logger.info("Embedding 模型: %s", config.EMBEDDING_MODEL)
+    logger.info("Storage DB: %s", config.DB_TYPE)
+    logger.info("Embedding API: %s", config.EMBEDDING_API_URL)
     logger.info("数据目录: %s", config.DATA_DIR)
 
     # 初始化存储层
-    vector_store = VectorStore()
     meta_store = create_meta_store()
+    vector_store = QdrantStore(meta_store=meta_store)
 
     # 初始化业务层
     app.state.memory_manager = MemoryManager(
         vector_store=vector_store, meta_store=meta_store
     )
-    app.state.channel_manager = ChannelManager(meta_store=meta_store)
+    app.state.channel_manager = ChannelManager(
+        meta_store=meta_store, vector_store=vector_store
+    )
     app.state.meta_store = meta_store
 
     logger.info("Engrama 启动完成 ✅")

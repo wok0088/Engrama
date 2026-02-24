@@ -17,8 +17,8 @@ from engrama.channel_manager import ChannelManager
 def cm(tmp_dir, monkeypatch):
     """创建 ChannelManager 实例"""
     import engrama.config as config
-    monkeypatch.setattr(config, "DB_TYPE", "sqlite")
-    monkeypatch.setattr(config, "SQLITE_DB_PATH", os.path.join(tmp_dir, "meta.db"))
+
+
     ms = create_meta_store()
     return ChannelManager(meta_store=ms)
 

@@ -1,0 +1,32 @@
+services:
+  # --- Embedding 推理引擎 (TEI: Text Embeddings Inference) ---
+  embedding-engine:
+    # 2026 年最新镜像，针对 CPU 深度优化
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    container_name: memory_embedding_tei
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      # 1. 模型 ID (支持 BGE-m3 全功能，包括多语言和长文本)
+      - MODEL_ID=BAAI/bge-m3
+
+      # 2. 【核心鉴权】设置访问密钥，防止接口被滥用
+      - API_KEY=0S8MswESajS6l8
+
+      # 3. 性能优化 (针对普通 CPU 服务器)
+      - MAX_CLIENT_BATCH_SIZE=32 # 最大并发批次
+      - MAX_CONCURRENT_REQUESTS=128 # 最大并发请求数
+      - HF_HUB_ENABLE_HF_TRANSFER=1 # 加速模型下载
+
+    volumes:
+      # 映射模型缓存目录，避免容器重启后重新下载模型（约 2.3GB）
+      - ./data/model_cache:/data
+
+    # 2026 年 TEI 默认会检测 CPU 指令集（AVX-512/NEON），无需额外配置即可发挥最高性能
+    networks:
+      - brain_net
+
+networks:
+  brain_net:
+    driver: bridge

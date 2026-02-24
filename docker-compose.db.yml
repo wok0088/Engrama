@@ -1,0 +1,56 @@
+services:
+  # --- Qdrant 向量数据库 ---
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: memory_qdrant
+    restart: always
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    environment:
+      # 【修复报错】关闭集群模式，单机运行时不需要它
+      # 如果以后真的要部署多台服务器，再开启并配置 URI
+      - QDRANT__CLUSTER__ENABLED=false
+
+      # 【核心鉴权】保持不变
+      - QDRANT__SERVICE__API_KEY=qTK78TeyDTNVkp
+
+      # 【性能优化】针对普通 CPU 环境优化
+      - QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS=0 # 自动使用所有可用 CPU
+    volumes:
+      - ./data/qdrant_storage:/qdrant/storage:z
+    networks:
+      - brain_net
+
+  # --- PostgreSQL ---
+  postgres:
+    image: postgres:17-alpine
+    container_name: memory_postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=agent_admin
+      - POSTGRES_PASSWORD=SI62FbBcrYh5IN
+      - POSTGRES_DB=long_term_memory
+    volumes:
+      - ./data/postgres_data:/var/lib/postgresql/data
+    networks:
+      - brain_net
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    container_name: memory_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass V5P8l6cf2mY1tQ --appendonly yes
+    volumes:
+      - ./data/redis_data:/data
+    networks:
+      - brain_net
+
+networks:
+  brain_net:
+    driver: bridge

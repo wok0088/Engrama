@@ -21,10 +21,16 @@ class ChannelManager:
     提供租户注册、项目管理和 API Key 管理的业务接口。
     """
 
-    def __init__(self, meta_store: Optional[BaseMetaStore] = None):
+    def __init__(self, meta_store: Optional[BaseMetaStore] = None, vector_store=None):
         self._meta_store = meta_store or create_meta_store()
-        from engrama.store.vector_store import VectorStore
-        self._vector_store = VectorStore()
+        self._vector_store = vector_store
+
+    def _get_vector_store(self):
+        """延迟加载 VectorStore（仅在删除租户/项目时需要）"""
+        if self._vector_store is None:
+            from engrama.store.qdrant_store import QdrantStore
+            self._vector_store = QdrantStore(meta_store=self._meta_store)
+        return self._vector_store
 
     # ----------------------------------------------------------
     # 租户管理
@@ -49,8 +55,9 @@ class ChannelManager:
 
         success = self._meta_store.delete_tenant(tenant_id)
         if success:
+            vs = self._get_vector_store()
             for p in projects:
-                self._vector_store.delete_collection(tenant_id, p.id)
+                vs.delete_collection(tenant_id, p.id)
         return success
 
     # ----------------------------------------------------------
@@ -73,7 +80,7 @@ class ChannelManager:
         """删除项目（需验证 tenant_id 归属）"""
         success = self._meta_store.delete_project(project_id, tenant_id=tenant_id)
         if success:
-            self._vector_store.delete_collection(tenant_id, project_id)
+            self._get_vector_store().delete_collection(tenant_id, project_id)
         return success
 
     # ----------------------------------------------------------

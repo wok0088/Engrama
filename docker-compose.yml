@@ -8,8 +8,10 @@ services:
     environment:
       # ⚠️ 生产环境必须设置管理员 Token
       - ENGRAMA_ADMIN_TOKEN=${ENGRAMA_ADMIN_TOKEN:-}
-      # 可选配置
-      - ENGRAMA_EMBEDDING_MODEL=${ENGRAMA_EMBEDDING_MODEL:-BAAI/bge-m3}
+      - ENGRAMA_QDRANT_HOST=host.docker.internal
+      - ENGRAMA_QDRANT_PORT=6333
+      - ENGRAMA_EMBEDDING_API_URL=${ENGRAMA_EMBEDDING_API_URL:-http://host.docker.internal:8080}
+      - ENGRAMA_DB_TYPE=postgres
       - ENGRAMA_CORS_ORIGINS=${ENGRAMA_CORS_ORIGINS:-*}
       - ENGRAMA_RATE_LIMIT=${ENGRAMA_RATE_LIMIT:-0}
       - ENGRAMA_LOG_LEVEL=${ENGRAMA_LOG_LEVEL:-INFO}

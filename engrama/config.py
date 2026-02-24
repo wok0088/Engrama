@@ -17,26 +17,26 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 # 数据持久化目录
 DATA_DIR = Path(os.getenv("ENGRAMA_DATA_DIR", str(_PROJECT_ROOT / "data")))
 
-# ChromaDB 配置
-CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
+# Qdrant 配置
+QDRANT_HOST = os.getenv("ENGRAMA_QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("ENGRAMA_QDRANT_PORT", "6333"))
+QDRANT_API_KEY = os.getenv("ENGRAMA_QDRANT_API_KEY", "qTK78TeyDTNVkp")
 
-# SQLite 配置
-SQLITE_DB_PATH = DATA_DIR / "engrama_meta.db"
-
-# 数据库类型 (sqlite 或 postgres)
-DB_TYPE = os.getenv("ENGRAMA_DB_TYPE", "sqlite")
+# 数据库类型 (强制使用 postgres)
+DB_TYPE = os.getenv("ENGRAMA_DB_TYPE", "postgres")
 
 # PostgreSQL 连接 URI (如 postgresql://user:pass@localhost:5432/engrama)
-PG_URI = os.getenv("ENGRAMA_PG_URI", "")
+PG_URI = os.getenv("ENGRAMA_PG_URI", "postgresql://agent_admin:SI62FbBcrYh5IN@localhost:5432/long_term_memory")
 
 # Redis 配置 (如 redis://localhost:6379/0)
 REDIS_URL = os.getenv("ENGRAMA_REDIS_URL", "")
 
-# Embedding 模型
-# 默认使用项目内的 BAAI/bge-m3（多语言 Embedding 模型，支持中英日韩俄等 100+ 语言）
-# 模型文件存放在 data/models/bge-m3/，不依赖 ~/.cache 缓存
-# 可通过环境变量切换为其他 sentence-transformers 兼容模型
-EMBEDDING_MODEL = os.getenv("ENGRAMA_EMBEDDING_MODEL", str(DATA_DIR / "models" / "bge-m3"))
+# Embedding TEI 服务配置
+EMBEDDING_API_URL = os.getenv("ENGRAMA_EMBEDDING_API_URL", "http://localhost:8080")
+EMBEDDING_API_KEY = os.getenv("ENGRAMA_EMBEDDING_API_KEY", "0S8MswESajS6l8")
+
+# 模型维度 (BGE-m3 为 1024)
+EMBEDDING_VECTOR_SIZE = 1024
 
 # 搜索默认参数
 DEFAULT_SEARCH_LIMIT = 10

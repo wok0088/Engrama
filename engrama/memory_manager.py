@@ -9,7 +9,7 @@ from typing import Optional
 
 from engrama.logger import get_logger
 from engrama.models import MemoryFragment, MemoryType, Role
-from engrama.store.vector_store import VectorStore
+from engrama.store.qdrant_store import QdrantStore
 from engrama.store.base_meta_store import BaseMetaStore
 from engrama.store import create_meta_store
 
@@ -43,10 +43,10 @@ class MemoryManager:
 
     def __init__(
         self,
-        vector_store: Optional[VectorStore] = None,
+        vector_store: Optional[QdrantStore] = None,
         meta_store: Optional[BaseMetaStore] = None,
     ):
-        self._vector_store = vector_store or VectorStore()
+        self._vector_store = vector_store or QdrantStore()
         self._meta_store = meta_store or create_meta_store()
 
     # ----------------------------------------------------------

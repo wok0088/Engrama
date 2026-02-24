@@ -18,8 +18,8 @@ def client(tmp_dir, monkeypatch):
     """创建测试客户端，使用临时目录存储数据"""
     # 使用 monkeypatch.setattr 替代 os.environ，确保配置模块级常量被正确覆盖
     monkeypatch.setattr(config, "DATA_DIR", tmp_dir)
-    monkeypatch.setattr(config, "CHROMA_PERSIST_DIR", os.path.join(tmp_dir, "chroma_db"))
-    monkeypatch.setattr(config, "SQLITE_DB_PATH", os.path.join(tmp_dir, "engrama_meta.db"))
+
+
     monkeypatch.setattr(config, "ADMIN_TOKEN", "")
 
     from api.main import create_app
@@ -369,6 +369,8 @@ class TestAPI:
         resp = client.post("/v1/memories/search", json={
             "user_id": "u1", "query": "生日",
         }, headers=headers)
+        if resp.status_code != 200:
+            print("test_search_memories 400 error output:", resp.json())
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] > 0

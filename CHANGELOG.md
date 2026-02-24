@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/) 版本规范。
 
+## [0.5.0] - 2026-02-24
+
+### 🚀 重大重构
+- **独立的 Embedding 推理引擎** — 将模型从主进程内嵌的 `SentenceTransformer` 迁移至外部的文本嵌入推理引擎 (TEI)，使用高性能 Rust 编写。根除 Mac MPS 和多进程下加载模型造成的内存泄漏或 OutOfMemory 奔溃。
+- **存储后端升级** — 将原本基于文件系统的 SQLite 与 ChromaDB 升级为正式的 PostgreSQL 与 Qdrant 组合。新增 `PostgresMetaStore` 和 `QdrantStore` 控制类，提升稳定性、性能和可扩展性。
+- **多容器编排** — 提供开箱即用的 Docker Compose 堆栈，支持一键部署 Postgres, Qdrant 和分离的 TEI 服务引擎。
+
 ## [0.4.4] - 2026-02-24
 
 ### 📦 依赖修复

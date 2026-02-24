@@ -12,7 +12,7 @@ import pytest
 
 from engrama.store.base_meta_store import BaseMetaStore
 from engrama.store import create_meta_store
-from engrama.store.vector_store import VectorStore
+from engrama.store.qdrant_store import QdrantStore
 from engrama.memory_manager import MemoryManager
 
 
@@ -21,14 +21,13 @@ def services(tmp_dir, monkeypatch):
     """初始化业务层服务和一个项目级 API Key"""
     monkeypatch.setenv("ENGRAMA_DATA_DIR", tmp_dir)
 
-    vector_store = VectorStore(persist_directory=os.path.join(tmp_dir, "chroma"))
-    meta_store = create_meta_store()
-
     # 因为是用sqlite测试，需要手动指定一个测试db路径
     import engrama.config as config
-    monkeypatch.setattr(config, "DB_TYPE", "sqlite")
-    monkeypatch.setattr(config, "SQLITE_DB_PATH", os.path.join(tmp_dir, "test.db"))
+
+
     meta_store = create_meta_store()
+
+    vector_store = QdrantStore(meta_store=meta_store)
     memory_manager = MemoryManager(vector_store=vector_store, meta_store=meta_store)
 
     # 创建租户 + 项目

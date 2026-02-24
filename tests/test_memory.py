@@ -9,7 +9,7 @@ import os
 import pytest
 
 from engrama.models import MemoryType, Role
-from engrama.store.vector_store import VectorStore
+from engrama.store.qdrant_store import QdrantStore
 from engrama.store.base_meta_store import BaseMetaStore
 from engrama.store import create_meta_store
 from engrama.memory_manager import MemoryManager
@@ -19,11 +19,11 @@ from engrama.memory_manager import MemoryManager
 def manager(tmp_dir, monkeypatch):
     """创建 MemoryManager 实例"""
     import engrama.config as config
-    monkeypatch.setattr(config, "DB_TYPE", "sqlite")
-    monkeypatch.setattr(config, "SQLITE_DB_PATH", os.path.join(tmp_dir, "meta.db"))
 
-    vs = VectorStore(persist_directory=os.path.join(tmp_dir, "chroma"))
+
+
     ms = create_meta_store()
+    vs = QdrantStore(meta_store=ms)
     return MemoryManager(vector_store=vs, meta_store=ms)
 
 

@@ -9,7 +9,7 @@ import os
 import secrets
 import json
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Generator, List, Dict, Any
 
 from psycopg_pool import ConnectionPool
@@ -21,6 +21,9 @@ from engrama.models import ApiKey, Project, Tenant, MemoryFragment
 from engrama.store.base_meta_store import BaseMetaStore
 
 logger = get_logger(__name__)
+
+# 允许通过 update_memory_fragment 更新的列白名单（防止 SQL 注入）
+_UPDATABLE_COLUMNS = {"content", "tags", "importance", "metadata"}
 
 
 def _hash_key(key: str) -> str:
@@ -389,8 +392,8 @@ class PostgresMetaStore(BaseMetaStore):
                         fragment.importance,
                         fragment.hit_count,
                         json.dumps(fragment.metadata) if fragment.metadata else None,
-                        fragment.created_at,
-                        fragment.updated_at,
+                        fragment.created_at.isoformat(),
+                        fragment.updated_at.isoformat(),
                     ),
                 )
                 conn.commit()
@@ -408,6 +411,8 @@ class PostgresMetaStore(BaseMetaStore):
                 result = dict(row)
                 if result.get("tags"):
                     result["tags"] = json.loads(result["tags"])
+                else:
+                    result["tags"] = []
                 if result.get("metadata"):
                     result["metadata"] = json.loads(result["metadata"])
                 return result
@@ -439,6 +444,11 @@ class PostgresMetaStore(BaseMetaStore):
         if not updates:
             return True
 
+        # 白名单校验：防止通过构造恶意 key 进行 SQL 注入
+        invalid_cols = set(updates.keys()) - _UPDATABLE_COLUMNS
+        if invalid_cols:
+            raise ValueError(f"不允许更新字段: {invalid_cols}")
+
         set_clauses = []
         values = []
         for k, v in updates.items():
@@ -449,7 +459,7 @@ class PostgresMetaStore(BaseMetaStore):
                 values.append(v)
 
         set_clauses.append("updated_at = %s")
-        values.append(datetime.utcnow().isoformat() + "Z")
+        values.append(datetime.now(timezone.utc).isoformat())
         values.append(fragment_id)
 
         query = f"UPDATE memory_fragments SET {', '.join(set_clauses)} WHERE id = %s"

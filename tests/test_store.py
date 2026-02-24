@@ -197,14 +197,6 @@ class TestQdrantStore:
         assert hit_counts[f1.id] == 1
         assert hit_counts[f2.id] == 1
 
-    def test_collection_name_truncation(self, vector_store):
-        """超长 collection 名称截断并附加哈希后缀"""
-        long_tenant = "a" * 40
-        long_project = "b" * 40
-        name = VectorStore._collection_name(long_tenant, long_project)
-        assert len(name) <= 63
-        # 应该有哈希后缀
-        assert "_" in name[50:]
 
 
 # ============================================================

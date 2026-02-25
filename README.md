@@ -53,7 +53,7 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # 编辑 .env 文件
-# ！！！请务必手动在 .env 中填入自己设定的 ENGRAMA_ADMIN_TOKEN 与数据库密码等信息。
+# ！！！请务必手动在 .env 中设定非常复杂的 ENGRAMA_ADMIN_TOKEN 与数据库密码等信息。
 vim .env
 ```
 

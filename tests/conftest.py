@@ -209,6 +209,8 @@ def setup_test_config():
     """全局设置测试配置，替换原有的 monkeypatch 机制"""
     d = tempfile.mkdtemp()
     config.DATA_DIR = d
-    config.ADMIN_TOKEN = "test_super_secret_token"
+    if not config.ADMIN_TOKEN:
+        import secrets
+        config.ADMIN_TOKEN = secrets.token_hex(32)
     yield
     shutil.rmtree(d, ignore_errors=True)

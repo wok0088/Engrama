@@ -18,7 +18,8 @@ def client_with_redis_rate_limit(tmp_dir, monkeypatch):
     """使用限制频率（13次/分）的配置启动客户端，并 Mock Redis"""
     monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 13)
     monkeypatch.setattr(config, "REDIS_URL", "redis://localhost")
-    monkeypatch.setattr(config, "ADMIN_TOKEN", "test_super_secret_token")
+    admin_token = config.ADMIN_TOKEN or "fallback-secret-for-test"
+    monkeypatch.setattr(config, "ADMIN_TOKEN", admin_token)
     monkeypatch.setattr(config, "DATA_DIR", tmp_dir)
 
 
@@ -59,7 +60,7 @@ def client_with_redis_rate_limit(tmp_dir, monkeypatch):
 def test_rate_limiter_exceeds_limit(client_with_redis_rate_limit):
     """测试超过频率限制会被拒绝（Redis 模式），并测试状态 429"""
     # 获取一个正常的 api key 用于测试
-    admin_headers = {"X-Admin-Token": "test_super_secret_token"}
+    admin_headers = {"X-Admin-Token": config.ADMIN_TOKEN}
     resp = client_with_redis_rate_limit.post("/v1/channels/tenants", json={"name": "t1"}, headers=admin_headers)
     tenant_id = resp.json()["id"]
 
@@ -93,7 +94,8 @@ def client_with_memory_rate_limit(tmp_dir, monkeypatch):
     """使用内存限流模式（无 Redis）"""
     monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 5)
     monkeypatch.setattr(config, "REDIS_URL", "")  # 无 Redis
-    monkeypatch.setattr(config, "ADMIN_TOKEN", "test_super_secret_token")
+    admin_token = config.ADMIN_TOKEN or "fallback-secret-for-test"
+    monkeypatch.setattr(config, "ADMIN_TOKEN", admin_token)
     monkeypatch.setattr(config, "DATA_DIR", tmp_dir)
 
 
@@ -107,7 +109,7 @@ def client_with_memory_rate_limit(tmp_dir, monkeypatch):
 def test_memory_rate_limiter_works(client_with_memory_rate_limit):
     """测试内存降级模式下限流仍生效"""
     # 获取 api key
-    admin_headers = {"X-Admin-Token": "test_super_secret_token"}
+    admin_headers = {"X-Admin-Token": config.ADMIN_TOKEN}
     resp = client_with_memory_rate_limit.post("/v1/channels/tenants", json={"name": "t1"}, headers=admin_headers)
     tenant_id = resp.json()["id"]
 
@@ -138,7 +140,7 @@ def test_memory_rate_limiter_works(client_with_memory_rate_limit):
 
 def test_rate_limiter_allows_under_limit(client_with_memory_rate_limit):
     """测试未超限的请求正常放行"""
-    admin_headers = {"X-Admin-Token": "test_super_secret_token"}
+    admin_headers = {"X-Admin-Token": config.ADMIN_TOKEN}
     resp = client_with_memory_rate_limit.post("/v1/channels/tenants", json={"name": "t1"}, headers=admin_headers)
     tenant_id = resp.json()["id"]
 

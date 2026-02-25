@@ -26,6 +26,7 @@ __pycache__/
 venv/
 .venv/
 .env
+.env.test
 
 # Cortex 运行时数据
 data/

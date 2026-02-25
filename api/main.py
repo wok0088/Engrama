@@ -52,11 +52,15 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """创建并配置 FastAPI 应用"""
+    is_prod = config.ENV_NAME == "prod"
     app = FastAPI(
         title=config.API_TITLE,
         version=config.API_VERSION,
         description=config.API_DESCRIPTION,
         lifespan=lifespan,
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
+        openapi_url=None if is_prod else "/openapi.json",
     )
 
     # 注册路由
@@ -126,10 +130,11 @@ def create_app() -> FastAPI:
     @app.get("/", tags=["根"])
     async def root():
         """Engrama API 欢迎页"""
+        is_prod = config.ENV_NAME == "prod"
         return {
             "name": config.API_TITLE,
             "version": config.API_VERSION,
-            "docs": "/docs",
+            "docs": "Disabled in Production" if is_prod else "/docs",
         }
 
     @app.get("/health", tags=["健康检查"])

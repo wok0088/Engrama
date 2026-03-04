@@ -2,6 +2,17 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/) 版本规范。
 
+## [0.5.3] - 2026-02-26
+
+### 🐛 缺陷修复
+- **MCP stdio 通信流污染修复** — 将 `engrama/logger.py` 中基础日志的输出通道从 `sys.stdout` 切换至 `sys.stderr`。彻底解决了 HTTP `UserWarning` 或常规业务日志混入 JSON-RPC 响应，导致 AI 对接时抛出 `invalid trailing data at the end of stream` 解析级崩溃的问题，极大提升了标准 MCP 集成的稳定性。
+
+## [0.5.2] - 2026-02-26
+
+### 🔒 安全加固
+- **生产环境屏蔽 OpenAPI 规范侧漏** — 引入全新的 `ENGRAMA_ENV=prod` 环境嗅探机制。如果检测到生产模式，FastAPI 将直接拒绝生成 `/docs`, `/redoc` 与 `/openapi.json` 等隐患级文档路由（直接返回 404），掐断黑客通过可视界面分析系统接口漏洞的可能性。
+- **清除测试环境内存越权污染** — `conftest.py` 及全部集成测试组件不再生硬覆写内存中的全局 Token。测试框架现改为强依赖读取 `ENGRAMA_ENV=test` 以及对应的 `.env.test` 文件。为了保障 CI 流水线的稳定性，缺省状态下测试引擎将自动生成极为安全的 64 位十六进制作为降级凭证替代。
+
 ## [0.5.1] - 2026-02-25
 
 ### 🔒 安全加固

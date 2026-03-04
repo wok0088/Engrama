@@ -17,6 +17,9 @@ load_dotenv()
 # 项目根目录
 _PROJECT_ROOT = Path(__file__).parent.parent
 
+# 运行环境 (dev, test, prod)
+ENV_NAME = os.getenv("ENGRAMA_ENV", "dev")
+
 # 数据持久化目录
 DATA_DIR = Path(os.getenv("ENGRAMA_DATA_DIR", str(_PROJECT_ROOT / "data")))
 

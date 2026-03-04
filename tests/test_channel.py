@@ -29,6 +29,12 @@ class TestChannelManager:
         assert tenant.name == "携程旅行"
         assert tenant.id is not None
 
+    def test_register_duplicate_tenant(self, cm):
+        """注册同名租户应抛出 ValueError"""
+        cm.register_tenant("重复租户")
+        with pytest.raises(ValueError, match="同名租户已存在"):
+            cm.register_tenant("重复租户")
+
     def test_get_tenant(self, cm):
         """获取租户"""
         tenant = cm.register_tenant("测试")
@@ -44,10 +50,17 @@ class TestChannelManager:
 
     def test_create_project(self, cm):
         """创建项目"""
-        tenant = cm.register_tenant("测试")
+        tenant = cm.register_tenant("测试创建")
         project = cm.create_project(tenant.id, "酒店 AI")
         assert project.name == "酒店 AI"
         assert project.tenant_id == tenant.id
+
+    def test_create_duplicate_project(self, cm):
+        """同一租户下创建同名项目应抛出 ValueError"""
+        tenant = cm.register_tenant("独占租户")
+        cm.create_project(tenant.id, "重复项目")
+        with pytest.raises(ValueError, match="该租户下同名项目已存在"):
+            cm.create_project(tenant.id, "重复项目")
 
     def test_create_project_invalid_tenant(self, cm):
         """无效租户创建项目失败"""

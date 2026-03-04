@@ -151,6 +151,12 @@ class PostgresMetaStore(BaseMetaStore):
                     raise
 
     def create_tenant(self, name: str) -> Tenant:
+        with self._pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM tenants WHERE name = %s", (name,))
+                if cur.fetchone() is not None:
+                    raise ValueError(f"同名租户已存在: {name}")
+
         tenant = Tenant(name=name)
         with self._pool.connection() as conn:
             with conn.cursor() as cur:
@@ -221,6 +227,12 @@ class PostgresMetaStore(BaseMetaStore):
     def create_project(self, tenant_id: str, name: str) -> Project:
         if self.get_tenant(tenant_id) is None:
             raise ValueError(f"租户不存在: {tenant_id}")
+
+        with self._pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM projects WHERE tenant_id = %s AND name = %s", (tenant_id, name))
+                if cur.fetchone() is not None:
+                    raise ValueError(f"该租户下同名项目已存在: {name}")
 
         project = Project(tenant_id=tenant_id, name=name)
         with self._pool.connection() as conn:

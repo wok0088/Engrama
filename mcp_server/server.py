@@ -158,9 +158,15 @@ def verify_and_bind(api_key: str, meta_store: BaseMetaStore) -> AuthContext:
 mcp = FastMCP(
     "engrama",
     instructions=(
-        "Engrama 是一个 AI 记忆中间件。你可以使用以下工具来存储和检索用户记忆。"
-        "在对话中，当你了解到关于用户的重要信息（偏好、事实、经历等）时，"
-        "应该主动调用 add_memory 存储。当需要回忆用户信息时，调用 search_memory。"
+        "You are connected to Engrama, an intelligent Agentic Memory layer designed to provide personalized, long-term memory capabilities.\n"
+        "This system acts as your episodic and preference memory, allowing you to build continuity across interactions.\n\n"
+        "【Core Responsibilities】\n"
+        "1. PROACTIVE EXTRACTION (add_memory): When the user explicitly or implicitly shares personal preferences, facts, workflow habits, or corrections, you should call `add_memory` to store them. This ensures you 'learn' about the user over time.\n"
+        "2. CONTEXTUAL RETRIEVAL (search_memory): If a user's request requires historical context, leans on personal preferences, or refers to past interactions (e.g., 'Do it like we did last time'), call `search_memory` to fetch the relevant context before answering.\n"
+        "3. NATURAL INTEGRATION: Use retrieved memories seamlessly as if you naturally remembered them. Avoid robotic phrasing like 'According to my database'.\n\n"
+        "【Strict Boundary Definitions (DO NOT VIOLATE)】\n"
+        "- ❌ NOT FOR GENERAL KNOWLEDGE: Engrama is for USER-SPECIFIC context. Do NOT use it to search for general coding syntax, public API documentation, or broad factual knowledge. Use dedicated RAG tools, code search, or web search for those purposes.\n"
+        "- ❌ AVOID TOOL CONFUSION: If the user asks you to read a codebase, analyze a framework, or write a standard script from documentation, prioritize Code RAG or filesystem tools over Engrama."
     ),
 )
 

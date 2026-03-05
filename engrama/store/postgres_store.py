@@ -8,6 +8,7 @@ import hashlib
 import os
 import secrets
 import json
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional, Generator, List, Dict, Any
@@ -114,6 +115,19 @@ class PostgresMetaStore(BaseMetaStore):
 
                         CREATE INDEX IF NOT EXISTS idx_memory_fragments_user ON memory_fragments(tenant_id, project_id, user_id);
                         CREATE INDEX IF NOT EXISTS idx_memory_fragments_session ON memory_fragments(session_id);
+
+                        CREATE TABLE IF NOT EXISTS deletion_log (
+                            id TEXT PRIMARY KEY,
+                            fragment_id TEXT NOT NULL,
+                            tenant_id TEXT NOT NULL,
+                            project_id TEXT NOT NULL,
+                            user_id TEXT NOT NULL,
+                            content_hash TEXT NOT NULL,
+                            memory_type TEXT,
+                            deleted_at TEXT NOT NULL
+                        );
+
+                        CREATE INDEX IF NOT EXISTS idx_deletion_log_user ON deletion_log(tenant_id, project_id, user_id);
                     """)
 
                     # Handle key_hash migration for existing tables
@@ -484,6 +498,28 @@ class PostgresMetaStore(BaseMetaStore):
     def delete_memory_fragment(self, fragment_id: str) -> bool:
         with self._pool.connection() as conn:
             with conn.cursor() as cur:
+                # 先查出待删记忆，写入审计日志
+                cur.execute(
+                    "SELECT tenant_id, project_id, user_id, content, memory_type FROM memory_fragments WHERE id = %s",
+                    (fragment_id,),
+                )
+                row = cur.fetchone()
+                if row:
+                    content_hash = hashlib.sha256(row["content"].encode()).hexdigest()
+                    cur.execute(
+                        "INSERT INTO deletion_log (id, fragment_id, tenant_id, project_id, user_id, content_hash, memory_type, deleted_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (
+                            uuid.uuid4().hex,
+                            fragment_id,
+                            row["tenant_id"],
+                            row["project_id"],
+                            row["user_id"],
+                            content_hash,
+                            row["memory_type"],
+                            datetime.now(timezone.utc).isoformat(),
+                        ),
+                    )
+
                 cur.execute("DELETE FROM memory_fragments WHERE id = %s", (fragment_id,))
                 conn.commit()
                 return cur.rowcount > 0

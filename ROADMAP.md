@@ -131,6 +131,10 @@ class MemoryFragment:
 - [x] **环境安全配置**：`python-dotenv` + `.env` 集中管理
 - [x] **测试防误删机制**：`ENGRAMA_ENV=test` 安全锁，94 个测试全部通过
 
+### [0.5.4] - 2026-03-05 · 删除审计日志 ✅
+
+- [x] **删除审计日志**：新增 `deletion_log` 表，记忆删除时自动记录审计轨迹（`content_hash` SHA-256 + 元数据），不存原文，满足 EU AI Act 第 12 条日志要求
+
 ### [0.5.3] - 2026-02-26 · MCP 通信安全修复（当前版本）✅
 
 - [x] **修复 MCP stdio 污染**：将系统标准日志流从 `sys.stdout` 重定向至 `sys.stderr`，保障 JSON-RPC 协议稳定通信。
@@ -152,7 +156,8 @@ class MemoryFragment:
 
 | 版本 | 状态 | 当前能力 |
 |---|---|---|
-| **v0.5.3** | ✅ 当前版本 | 完整的存-取-搜链路 + 生产级基础设施 + 稳定的 MCP + 鉴权体系 + 严格的暴露面封堵 |
+| **v0.5.4** | ✅ 当前版本 | 完整的存-取-搜链路 + 生产级基础设施 + 稳定的 MCP + 鉴权体系 + 严格的暴露面封堵 + 删除审计日志 |
+| v0.5.3 | 🔖 历史版本 | MCP 通信安全修复 |
 | v0.5.2 | 🔖 历史版本 | 生产安全架构修复（封堵 Swagger 与测试体系） |
 | v0.5.1 | 🔖 历史版本 | 严格渠道保护与文档重构 |
 | v0.5.0 | 🔖 历史版本 | 基础设施升级（TEI + Postgres + Qdrant集成） |
@@ -178,6 +183,7 @@ class MemoryFragment:
 
 > **目标**：API 定型、文档完善，达到首个正式发布标准。
 
+- [x] **删除审计日志**：新增 `deletion_log` 表，记忆删除时自动记录审计轨迹（content_hash + 元数据），满足 EU AI Act 第 12 条日志要求
 - [ ] **API 稳定化**：确认现有 API 不再变动，打上 `v1.0.0` 标签
 - [ ] **OpenAPI 文档完善**：各端点补充完整的 description、example
 - [ ] **错误码规范化**：统一错误码体系（目前靠 HTTP status code + 中文 detail）
@@ -208,6 +214,8 @@ class MemoryFragment:
     - `score = importance × decay(time_since_last_hit)`
     - 长期未被检索的低重要度记忆自动归档或删除
 - [ ] **重要度自动评分**：基于 `hit_count` 和内容特征的规则评分（无需 LLM）
+- [ ] **记忆修正语义（Supersession）**：将 REST API `PUT` 从"原地覆写"演进为"废止旧版本 + 创建新版本"，MCP 层增加 `correct_memory` tool
+- [ ] **软删除 + 硬删除双模式**：默认软删除（`is_active = 0`，与 API Key 策略统一），提供 `purge` API 用于 GDPR 合规的物理擦除
 
 #### 可选 LLM 增强（需用户自带 LLM）
 

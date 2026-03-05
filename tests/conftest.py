@@ -169,7 +169,7 @@ def clean_databases(db_pool, qdrant):
         with conn.cursor() as cur:
             # 使用 CASCADE 级联清理，忽略尚未建表的错误
             try:
-                cur.execute("TRUNCATE TABLE memory_fragments, projects, api_keys, tenants CASCADE")
+                cur.execute("TRUNCATE TABLE deletion_log, memory_fragments, projects, api_keys, tenants CASCADE")
                 conn.commit()
             except Exception:
                 conn.rollback()

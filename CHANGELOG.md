@@ -2,6 +2,11 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/) 版本规范。
 
+## [0.5.4] - 2026-03-05
+
+### 🔒 合规增强
+- **记忆删除审计日志** — 新增 `deletion_log` 表，记忆被删除时自动记录审计轨迹（`fragment_id`、`content_hash`（SHA-256，不存原文）、`memory_type`、三层隔离标识、`deleted_at` 时间戳）。满足 EU AI Act 第 12 条操作日志要求，同时不影响现有硬删除行为和 GDPR 被遗忘权合规性。
+
 ## [0.5.3] - 2026-02-26
 
 ### 🐛 缺陷修复
